@@ -8,12 +8,14 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import * as Haptics from "expo-haptics";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { supabase } from "../lib/supabase";
 import { recordAnswer } from "../lib/progress";
 import { colors, borderRadius } from "../theme";
 import type { OptionKey, Question } from "../types/question";
 import type { RootStackParamList } from "../navigation/types";
+import AnswerOption, { type OptionStatus } from "../components/AnswerOption";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Quiz">;
 
@@ -78,24 +80,28 @@ export default function QuizScreen({ navigation, route }: Props) {
 
   const handleSelect = (key: OptionKey) => {
     if (isAnswered || !question) return;
+    const correct = key === question.answer;
+
     setSelected(key);
     recordAnswer({
       questionId: question.id,
       field: question.field,
-      correct: key === question.answer,
+      correct,
       answeredAt: new Date().toISOString(),
     });
+
+    if (correct) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    } else {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    }
   };
 
-  const getOptionStyle = (key: OptionKey) => {
-    if (!isAnswered || !question) return styles.optionButton;
-    if (key === question.answer) {
-      return [styles.optionButton, styles.optionCorrect];
-    }
-    if (key === selected) {
-      return [styles.optionButton, styles.optionIncorrect];
-    }
-    return [styles.optionButton, styles.optionDisabled];
+  const getOptionStatus = (key: OptionKey): OptionStatus => {
+    if (!isAnswered || !question) return "idle";
+    if (key === question.answer) return "correct";
+    if (key === selected) return "incorrect";
+    return "muted";
   };
 
   return (
@@ -138,15 +144,14 @@ export default function QuizScreen({ navigation, route }: Props) {
 
             <View style={styles.optionsContainer}>
               {OPTION_KEYS.map((key) => (
-                <TouchableOpacity
+                <AnswerOption
                   key={key}
-                  style={getOptionStyle(key)}
+                  label={key}
+                  text={question.options[key]}
+                  status={getOptionStatus(key)}
                   disabled={isAnswered}
                   onPress={() => handleSelect(key)}
-                >
-                  <Text style={styles.optionNumber}>{key}</Text>
-                  <Text style={styles.optionText}>{question.options[key]}</Text>
-                </TouchableOpacity>
+                />
               ))}
             </View>
 
@@ -228,39 +233,6 @@ const styles = StyleSheet.create({
   },
   optionsContainer: {
     gap: 12,
-  },
-  optionButton: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 12,
-    backgroundColor: colors.white,
-    borderWidth: 1,
-    borderColor: colors.lightBorder,
-    borderRadius: borderRadius,
-    padding: 16,
-  },
-  optionNumber: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: colors.black,
-    width: 20,
-  },
-  optionText: {
-    flex: 1,
-    fontSize: 15,
-    color: colors.black,
-    lineHeight: 21,
-  },
-  optionCorrect: {
-    backgroundColor: colors.success,
-    borderColor: colors.success,
-  },
-  optionIncorrect: {
-    backgroundColor: colors.errorBackground,
-    borderColor: colors.error,
-  },
-  optionDisabled: {
-    opacity: 0.5,
   },
   resultCard: {
     backgroundColor: colors.lavender,
