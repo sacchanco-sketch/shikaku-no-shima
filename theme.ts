@@ -4,7 +4,8 @@
  * アプリ全体で使うデザイントークン定義。
  * すべての画面のスタイリングはここから値を読み込んで使用する。
  *
- * ⚠️ 仮の配色、後日変更予定
+ * v1確定版(2026-09)。ブランドカラー(vividBlue/neonLime/lavender)は
+ * ホーム・演習・成績の3画面で使用実績あり。今後変更する場合はここを更新すれば全画面に反映される。
  */
 
 export const colors = {
@@ -22,6 +23,14 @@ export const colors = {
   textSecondary: '#A0A0A0',
   /** 区切り線 */
   lightBorder: '#F0F0F0',
+
+  // --- 意味づけされたセマンティックカラー ---
+  /** 正解・成功を示す色(neonLimeのエイリアス) */
+  success: '#D4F238',
+  /** 不正解・エラーを示す色 */
+  error: '#FF6B6B',
+  /** エラー系の背景色(errorより薄い) */
+  errorBackground: '#FFE1E1',
 } as const;
 
 /** カード・ボタンの角丸 */

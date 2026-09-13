@@ -1,11 +1,18 @@
 import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { colors, borderRadius } from "../theme";
+import type { RootStackParamList } from "../navigation/types";
+import type { QuestionField } from "../types/question";
 
-type Props = {
-  onStartQuiz: () => void;
-};
+type Props = NativeStackScreenProps<RootStackParamList, "Home">;
 
-export default function HomeScreen({ onStartQuiz }: Props) {
+const FIELDS: { field: QuestionField; color: string; textColor: string }[] = [
+  { field: "関係法令", color: colors.lavender, textColor: colors.black },
+  { field: "労働衛生", color: colors.neonLime, textColor: colors.black },
+  { field: "労働生理", color: colors.vividBlue, textColor: colors.white },
+];
+
+export default function HomeScreen({ navigation }: Props) {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
@@ -17,17 +24,43 @@ export default function HomeScreen({ onStartQuiz }: Props) {
         <View style={[styles.card, styles.limeCard]}>
           <Text style={styles.cardLabel}>TODAY'S QUESTION</Text>
           <Text style={styles.cardDescription}>
-            ランダムに1問出題します。すきま時間にサクッと復習しましょう。
+            全330問からランダムに1問出題します。すきま時間にサクッと復習しましょう。
           </Text>
-          <TouchableOpacity style={styles.primaryButton} onPress={onStartQuiz}>
+          <TouchableOpacity
+            style={styles.primaryButton}
+            onPress={() => navigation.navigate("Quiz", {})}
+          >
             <Text style={styles.primaryButtonText}>今日の問題</Text>
           </TouchableOpacity>
         </View>
 
-        <View style={[styles.card, styles.lavenderCard]}>
+        <View>
+          <Text style={styles.sectionTitle}>分野を選んで演習</Text>
+          <View style={styles.fieldGrid}>
+            {FIELDS.map(({ field, color, textColor }) => (
+              <TouchableOpacity
+                key={field}
+                style={[styles.fieldCard, { backgroundColor: color }]}
+                onPress={() => navigation.navigate("Quiz", { field })}
+              >
+                <Text style={[styles.fieldCardText, { color: textColor }]}>{field}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        <View style={[styles.card, styles.outlineCard]}>
           <Text style={styles.cardLabel}>出題範囲</Text>
           <Text style={styles.cardDescription}>関係法令・労働衛生・労働生理　全330問</Text>
         </View>
+
+        <TouchableOpacity
+          style={[styles.card, styles.outlineCard, styles.progressLink]}
+          onPress={() => navigation.navigate("Progress")}
+        >
+          <Text style={styles.progressLinkText}>成績を見る</Text>
+          <Text style={styles.progressLinkArrow}>→</Text>
+        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
@@ -59,7 +92,29 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 20,
-    gap: 16,
+    gap: 20,
+  },
+  sectionTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: colors.black,
+    marginBottom: 10,
+  },
+  fieldGrid: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  fieldCard: {
+    flex: 1,
+    borderRadius: borderRadius,
+    paddingVertical: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  fieldCardText: {
+    fontSize: 14,
+    fontWeight: "700",
+    textAlign: "center",
   },
   card: {
     borderRadius: borderRadius,
@@ -68,8 +123,9 @@ const styles = StyleSheet.create({
   limeCard: {
     backgroundColor: colors.neonLime,
   },
-  lavenderCard: {
-    backgroundColor: colors.lavender,
+  outlineCard: {
+    borderWidth: 1,
+    borderColor: colors.lightBorder,
   },
   cardLabel: {
     fontSize: 12,
@@ -83,6 +139,20 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.black,
     lineHeight: 22,
+  },
+  progressLink: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  progressLinkText: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: colors.black,
+  },
+  progressLinkArrow: {
+    fontSize: 16,
+    color: colors.black,
   },
   primaryButton: {
     marginTop: 16,

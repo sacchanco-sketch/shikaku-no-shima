@@ -1,18 +1,22 @@
-import { useState } from "react";
+import { NavigationContainer } from "@react-navigation/native";
+import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { StatusBar } from "expo-status-bar";
 import HomeScreen from "./screens/HomeScreen";
 import QuizScreen from "./screens/QuizScreen";
+import ProgressScreen from "./screens/ProgressScreen";
+import type { RootStackParamList } from "./navigation/types";
 
-type Screen = "home" | "quiz";
+const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function App() {
-  const [screen, setScreen] = useState<Screen>("home");
-
   return (
-    <>
-      {screen === "home" && <HomeScreen onStartQuiz={() => setScreen("quiz")} />}
-      {screen === "quiz" && <QuizScreen onBack={() => setScreen("home")} />}
+    <NavigationContainer>
+      <Stack.Navigator screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="Home" component={HomeScreen} />
+        <Stack.Screen name="Quiz" component={QuizScreen} />
+        <Stack.Screen name="Progress" component={ProgressScreen} />
+      </Stack.Navigator>
       <StatusBar style="auto" />
-    </>
+    </NavigationContainer>
   );
 }

@@ -8,22 +8,30 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { supabase } from "../lib/supabase";
+import { recordAnswer } from "../lib/progress";
 import { colors, borderRadius } from "../theme";
 import type { OptionKey, Question } from "../types/question";
+import type { RootStackParamList } from "../navigation/types";
 
-type Props = {
-  onBack: () => void;
-};
+type Props = NativeStackScreenProps<RootStackParamList, "Quiz">;
 
 const OPTION_KEYS: OptionKey[] = ["1", "2", "3", "4", "5"];
 
-// theme.ts にはまだ正誤表示用の色が定義されていないため、暫定でここに置く。
-// theme.ts が正式に色を決めたら移動する。
-const INCORRECT_BG = "#FFE1E1";
-const INCORRECT_BORDER = "#FF6B6B";
+// このアプリでは Database 型を生成していないため、フィルタの有無で分岐する
+// クエリビルダーの型は any として扱う(内部ヘルパーに閉じているため実用上の影響はない)。
+function applyScope(query: any, field?: string, reviewIds?: string[]) {
+  if (reviewIds && reviewIds.length > 0) return query.in("id", reviewIds);
+  if (field) return query.eq("field", field);
+  return query;
+}
 
-export default function QuizScreen({ onBack }: Props) {
+export default function QuizScreen({ navigation, route }: Props) {
+  const field = route.params?.field;
+  const reviewIds = route.params?.reviewIds;
+  const isReviewMode = !!reviewIds && reviewIds.length > 0;
+
   const [question, setQuestion] = useState<Question | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -35,9 +43,8 @@ export default function QuizScreen({ onBack }: Props) {
     setSelected(null);
     setQuestion(null);
 
-    const { count, error: countError } = await supabase
-      .from("questions")
-      .select("id", { count: "exact", head: true });
+    const countBase = supabase.from("questions").select("id", { count: "exact", head: true });
+    const { count, error: countError } = await applyScope(countBase, field, reviewIds);
 
     if (countError || !count) {
       setError(countError?.message ?? "問題が見つかりませんでした。");
@@ -47,11 +54,11 @@ export default function QuizScreen({ onBack }: Props) {
 
     const randomIndex = Math.floor(Math.random() * count);
 
-    const { data, error: fetchError } = await supabase
-      .from("questions")
-      .select("*")
-      .order("id", { ascending: true })
-      .range(randomIndex, randomIndex);
+    const dataBase = supabase.from("questions").select("*").order("id", { ascending: true });
+    const { data, error: fetchError } = await applyScope(dataBase, field, reviewIds).range(
+      randomIndex,
+      randomIndex
+    );
 
     if (fetchError || !data || data.length === 0) {
       setError(fetchError?.message ?? "問題の取得に失敗しました。");
@@ -61,13 +68,24 @@ export default function QuizScreen({ onBack }: Props) {
 
     setQuestion(data[0] as Question);
     setLoading(false);
-  }, []);
+  }, [field, reviewIds]);
 
   useEffect(() => {
     fetchRandomQuestion();
   }, [fetchRandomQuestion]);
 
   const isAnswered = selected !== null;
+
+  const handleSelect = (key: OptionKey) => {
+    if (isAnswered || !question) return;
+    setSelected(key);
+    recordAnswer({
+      questionId: question.id,
+      field: question.field,
+      correct: key === question.answer,
+      answeredAt: new Date().toISOString(),
+    });
+  };
 
   const getOptionStyle = (key: OptionKey) => {
     if (!isAnswered || !question) return styles.optionButton;
@@ -83,10 +101,12 @@ export default function QuizScreen({ onBack }: Props) {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={onBack}>
+        <TouchableOpacity onPress={() => navigation.goBack()}>
           <Text style={styles.backLink}>← ホームへ</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>今日の問題</Text>
+        <Text style={styles.headerTitle}>
+          {isReviewMode ? "苦手問題の復習" : (field ?? "今日の問題")}
+        </Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
@@ -122,7 +142,7 @@ export default function QuizScreen({ onBack }: Props) {
                   key={key}
                   style={getOptionStyle(key)}
                   disabled={isAnswered}
-                  onPress={() => setSelected(key)}
+                  onPress={() => handleSelect(key)}
                 >
                   <Text style={styles.optionNumber}>{key}</Text>
                   <Text style={styles.optionText}>{question.options[key]}</Text>
@@ -232,12 +252,12 @@ const styles = StyleSheet.create({
     lineHeight: 21,
   },
   optionCorrect: {
-    backgroundColor: colors.neonLime,
-    borderColor: colors.neonLime,
+    backgroundColor: colors.success,
+    borderColor: colors.success,
   },
   optionIncorrect: {
-    backgroundColor: INCORRECT_BG,
-    borderColor: INCORRECT_BORDER,
+    backgroundColor: colors.errorBackground,
+    borderColor: colors.error,
   },
   optionDisabled: {
     opacity: 0.5,
