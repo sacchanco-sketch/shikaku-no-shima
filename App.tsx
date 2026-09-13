@@ -1,20 +1,18 @@
-import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
+import { useState } from "react";
+import { StatusBar } from "expo-status-bar";
+import HomeScreen from "./screens/HomeScreen";
+import QuizScreen from "./screens/QuizScreen";
+
+type Screen = "home" | "quiz";
 
 export default function App() {
+  const [screen, setScreen] = useState<Screen>("home");
+
   return (
-    <View style={styles.container}>
-      <Text>Open up App.tsx to start working on your app!</Text>
+    <>
+      {screen === "home" && <HomeScreen onStartQuiz={() => setScreen("quiz")} />}
+      {screen === "quiz" && <QuizScreen onBack={() => setScreen("home")} />}
       <StatusBar style="auto" />
-    </View>
+    </>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});
