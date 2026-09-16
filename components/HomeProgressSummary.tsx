@@ -1,9 +1,11 @@
 import { useCallback, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Platform, StyleSheet, Text, View } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { colors, borderRadius } from "../theme";
 import { loadProgress, summarize, type OverallStats } from "../lib/progress";
 import type { QuestionField } from "../types/question";
+import ProgressRing from "./ProgressRing";
+import TurtleIcon from "./TurtleIcon";
 
 // 分野選択カード(HomeScreen)と同じ色分けに合わせている
 const FIELD_COLORS: Record<QuestionField, string> = {
@@ -28,108 +30,133 @@ export default function HomeProgressSummary() {
     }, [])
   );
 
-  if (!stats || stats.total === 0) {
-    return (
-      <View style={[styles.card, styles.emptyCard]}>
-        <Text style={styles.emptyText}>今日の1問から始めよう</Text>
-      </View>
-    );
-  }
+  const showEmpty = !stats || stats.total === 0;
 
   return (
     <View style={styles.card}>
-      <View style={styles.topRow}>
-        <Text style={styles.streakText}>
-          {stats.streakDays > 0 ? `🔥 連続学習 ${stats.streakDays}日` : "🔥 連続学習を始めよう"}
-        </Text>
-        <Text style={styles.last7Text}>直近7日 {stats.last7DaysCount}問</Text>
+      <View style={styles.headerRow}>
+        <Text style={styles.cardTitle}>学習の記録</Text>
+        <TurtleIcon size={28} />
       </View>
 
-      <View style={styles.barsContainer}>
-        {stats.byField.map((f) => (
-          <View key={f.field} style={styles.barRow}>
-            <Text style={styles.barLabel}>{f.field}</Text>
-            <View style={styles.barTrack}>
-              <View
-                style={[
-                  styles.barFill,
-                  {
-                    width: `${Math.round(f.accuracy * 100)}%`,
-                    backgroundColor: FIELD_COLORS[f.field],
-                  },
-                ]}
-              />
+      {showEmpty ? (
+        <View style={styles.emptyWrap}>
+          <Text style={styles.emptyText}>今日の1問から始めよう</Text>
+        </View>
+      ) : (
+        <>
+          <View style={styles.statsRow}>
+            <View style={styles.statBlock}>
+              <Text style={styles.statLabel}>🔥 連続学習</Text>
+              <View style={styles.statBadge}>
+                <Text style={styles.statNumber}>{stats.streakDays}</Text>
+                <Text style={styles.statUnit}>日</Text>
+              </View>
             </View>
-            <Text style={styles.barPercent}>{f.total > 0 ? `${Math.round(f.accuracy * 100)}%` : "-"}</Text>
+            <View style={styles.statBlock}>
+              <Text style={styles.statLabel}>直近7日</Text>
+              <View style={styles.statBadge}>
+                <Text style={styles.statNumber}>{stats.last7DaysCount}</Text>
+                <Text style={styles.statUnit}>問</Text>
+              </View>
+            </View>
           </View>
-        ))}
-      </View>
+
+          <View style={styles.ringsRow}>
+            {stats.byField.map((f) => (
+              <ProgressRing
+                key={f.field}
+                progress={f.accuracy}
+                color={FIELD_COLORS[f.field]}
+                label={f.field}
+                attempted={f.total > 0}
+              />
+            ))}
+          </View>
+        </>
+      )}
     </View>
   );
 }
 
+const CARD_BACKGROUND = "#F3ECFC"; // lavenderの薄い色調
+
 const styles = StyleSheet.create({
   card: {
     borderRadius: borderRadius,
-    borderWidth: 1,
-    borderColor: colors.lightBorder,
+    backgroundColor: CARD_BACKGROUND,
     padding: 20,
-    gap: 16,
+    gap: 18,
+    // 軽いドロップシャドウ(iOS/Webはshadow*、Androidはelevationで表現)
+    ...Platform.select({
+      web: {
+        boxShadow: "0px 4px 12px rgba(15, 15, 15, 0.08)",
+      },
+      default: {
+        shadowColor: "#0F0F0F",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.08,
+        shadowRadius: 12,
+        elevation: 3,
+      },
+    }),
   },
-  emptyCard: {
+  headerRow: {
+    flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 28,
+    justifyContent: "space-between",
+  },
+  cardTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: colors.black,
+    opacity: 0.6,
+    letterSpacing: 1,
+  },
+  emptyWrap: {
+    alignItems: "center",
+    paddingVertical: 12,
   },
   emptyText: {
     fontSize: 15,
     fontWeight: "700",
     color: colors.black,
   },
-  topRow: {
+  statsRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+    gap: 24,
   },
-  streakText: {
-    fontSize: 15,
+  statBlock: {
+    gap: 6,
+  },
+  statLabel: {
+    fontSize: 12,
     fontWeight: "700",
     color: colors.black,
+    opacity: 0.7,
   },
-  last7Text: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    fontWeight: "600",
-  },
-  barsContainer: {
-    gap: 10,
-  },
-  barRow: {
+  statBadge: {
     flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
+    alignItems: "baseline",
+    alignSelf: "flex-start",
+    backgroundColor: colors.neonLime,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 2,
   },
-  barLabel: {
-    width: 66,
-    fontSize: 12,
-    fontWeight: "700",
+  statNumber: {
+    fontSize: 38, // 従来のテキスト(15px)からおおむね2.5倍
+    fontWeight: "800",
     color: colors.black,
   },
-  barTrack: {
-    flex: 1,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colors.lightBorder,
-    overflow: "hidden",
-  },
-  barFill: {
-    height: "100%",
-    borderRadius: 4,
-  },
-  barPercent: {
-    width: 36,
-    fontSize: 12,
+  statUnit: {
+    fontSize: 16,
     fontWeight: "700",
     color: colors.black,
-    textAlign: "right",
+    marginLeft: 2,
+  },
+  ringsRow: {
+    flexDirection: "row",
+    justifyContent: "space-around",
   },
 });
