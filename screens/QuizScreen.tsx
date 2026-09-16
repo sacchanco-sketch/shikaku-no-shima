@@ -86,7 +86,7 @@ export default function QuizScreen({ navigation, route }: Props) {
     recordAnswer({
       questionId: question.id,
       field: question.field,
-      correct,
+      isCorrect: correct,
       answeredAt: new Date().toISOString(),
     });
 

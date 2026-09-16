@@ -3,6 +3,7 @@ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { colors, borderRadius } from "../theme";
 import type { RootStackParamList } from "../navigation/types";
 import type { QuestionField } from "../types/question";
+import HomeProgressSummary from "../components/HomeProgressSummary";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Home">;
 
@@ -21,6 +22,8 @@ export default function HomeScreen({ navigation }: Props) {
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
+        <HomeProgressSummary />
+
         <View style={[styles.card, styles.limeCard]}>
           <Text style={styles.cardLabel}>TODAY'S QUESTION</Text>
           <Text style={styles.cardDescription}>
