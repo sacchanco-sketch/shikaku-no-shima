@@ -14,12 +14,13 @@ import { supabase } from "../lib/supabase";
 import { recordAnswer } from "../lib/progress";
 import { colors, borderRadius } from "../theme";
 import type { OptionKey, Question } from "../types/question";
-import type { RootStackParamList } from "../navigation/types";
+import type { RootStackParamList, SetAnswerRecord } from "../navigation/types";
 import AnswerOption, { type OptionStatus } from "../components/AnswerOption";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Quiz">;
 
 const OPTION_KEYS: OptionKey[] = ["1", "2", "3", "4", "5"];
+const SET_SIZE = 10;
 
 // このアプリでは Database 型を生成していないため、フィルタの有無で分岐する
 // クエリビルダーの型は any として扱う(内部ヘルパーに閉じているため実用上の影響はない)。
@@ -29,60 +30,67 @@ function applyScope(query: any, field?: string, reviewIds?: string[]) {
   return query;
 }
 
+/** Fisher-Yatesシャッフル(元配列は破壊しない) */
+function shuffle<T>(input: T[]): T[] {
+  const arr = [...input];
+  for (let i = arr.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
 export default function QuizScreen({ navigation, route }: Props) {
   const field = route.params?.field;
   const reviewIds = route.params?.reviewIds;
   const isReviewMode = !!reviewIds && reviewIds.length > 0;
 
-  const [question, setQuestion] = useState<Question | null>(null);
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<OptionKey | null>(null);
+  const [setRecords, setSetRecords] = useState<SetAnswerRecord[]>([]);
 
-  const fetchRandomQuestion = useCallback(async () => {
+  const question = questions[currentIndex] ?? null;
+
+  const fetchQuestionSet = useCallback(async () => {
     setLoading(true);
     setError(null);
+    setQuestions([]);
+    setCurrentIndex(0);
     setSelected(null);
-    setQuestion(null);
+    setSetRecords([]);
 
-    const countBase = supabase.from("questions").select("id", { count: "exact", head: true });
-    const { count, error: countError } = await applyScope(countBase, field, reviewIds);
-
-    if (countError || !count) {
-      setError(countError?.message ?? "問題が見つかりませんでした。");
-      setLoading(false);
-      return;
-    }
-
-    const randomIndex = Math.floor(Math.random() * count);
-
-    const dataBase = supabase.from("questions").select("*").order("id", { ascending: true });
-    const { data, error: fetchError } = await applyScope(dataBase, field, reviewIds).range(
-      randomIndex,
-      randomIndex
-    );
+    // このアプリの問題数(最大330件)は小さいため、対象範囲を一括取得してから
+    // クライアント側でシャッフル・10件抽出する(往復回数を抑えるため)。
+    const baseQuery = supabase.from("questions").select("*");
+    const { data, error: fetchError } = await applyScope(baseQuery, field, reviewIds);
 
     if (fetchError || !data || data.length === 0) {
-      setError(fetchError?.message ?? "問題の取得に失敗しました。");
+      setError(fetchError?.message ?? "問題が見つかりませんでした。");
       setLoading(false);
       return;
     }
 
-    setQuestion(data[0] as Question);
+    const picked = shuffle(data as Question[]).slice(0, SET_SIZE);
+    setQuestions(picked);
     setLoading(false);
   }, [field, reviewIds]);
 
   useEffect(() => {
-    fetchRandomQuestion();
-  }, [fetchRandomQuestion]);
+    fetchQuestionSet();
+  }, [fetchQuestionSet]);
 
   const isAnswered = selected !== null;
+  const isLastQuestion = currentIndex === questions.length - 1;
 
   const handleSelect = (key: OptionKey) => {
     if (isAnswered || !question) return;
     const correct = key === question.answer;
 
     setSelected(key);
+    setSetRecords((prev) => [...prev, { field: question.field, correct }]);
     recordAnswer({
       questionId: question.id,
       field: question.field,
@@ -95,6 +103,15 @@ export default function QuizScreen({ navigation, route }: Props) {
     } else {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     }
+  };
+
+  const handleNext = () => {
+    if (!isLastQuestion) {
+      setCurrentIndex((i) => i + 1);
+      setSelected(null);
+      return;
+    }
+    navigation.replace("Result", { field, reviewIds, setRecords });
   };
 
   const getOptionStatus = (key: OptionKey): OptionStatus => {
@@ -110,9 +127,16 @@ export default function QuizScreen({ navigation, route }: Props) {
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Text style={styles.backLink}>← ホームへ</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>
-          {isReviewMode ? "苦手問題の復習" : (field ?? "今日の問題")}
-        </Text>
+        <View style={styles.headerTitleRow}>
+          <Text style={styles.headerTitle}>
+            {isReviewMode ? "苦手問題の復習" : (field ?? "今日の問題")}
+          </Text>
+          {questions.length > 0 && (
+            <Text style={styles.headerProgress}>
+              {currentIndex + 1}/{questions.length}問目
+            </Text>
+          )}
+        </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
@@ -125,7 +149,7 @@ export default function QuizScreen({ navigation, route }: Props) {
         {!loading && error && (
           <View style={styles.centered}>
             <Text style={styles.errorText}>{error}</Text>
-            <TouchableOpacity style={styles.primaryButton} onPress={fetchRandomQuestion}>
+            <TouchableOpacity style={styles.primaryButton} onPress={fetchQuestionSet}>
               <Text style={styles.primaryButtonText}>再試行</Text>
             </TouchableOpacity>
           </View>
@@ -165,8 +189,10 @@ export default function QuizScreen({ navigation, route }: Props) {
                   <Text style={styles.explanation}>{question.explanation}</Text>
                 )}
 
-                <TouchableOpacity style={styles.primaryButton} onPress={fetchRandomQuestion}>
-                  <Text style={styles.primaryButtonText}>次の問題へ</Text>
+                <TouchableOpacity style={styles.primaryButton} onPress={handleNext}>
+                  <Text style={styles.primaryButtonText}>
+                    {isLastQuestion ? "結果を見る" : "次の問題へ"}
+                  </Text>
                 </TouchableOpacity>
               </View>
             )}
@@ -196,10 +222,21 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     opacity: 0.9,
   },
+  headerTitleRow: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    justifyContent: "space-between",
+  },
   headerTitle: {
     color: colors.white,
     fontSize: 22,
     fontWeight: "700",
+  },
+  headerProgress: {
+    color: colors.white,
+    fontSize: 14,
+    fontWeight: "700",
+    opacity: 0.9,
   },
   content: {
     padding: 20,
