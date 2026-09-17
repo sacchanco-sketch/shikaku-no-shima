@@ -66,6 +66,7 @@ export default function HomeProgressSummary() {
             {stats.byField.map((f) => (
               <ProgressRing
                 key={f.field}
+                size={52}
                 progress={f.accuracy}
                 color={FIELD_COLORS[f.field]}
                 label={f.field}
@@ -124,7 +125,7 @@ const styles = StyleSheet.create({
   },
   statsRow: {
     flexDirection: "row",
-    gap: 24,
+    gap: 14,
   },
   statBlock: {
     gap: 6,
@@ -140,8 +141,8 @@ const styles = StyleSheet.create({
     alignItems: "baseline",
     alignSelf: "flex-start",
     backgroundColor: colors.neonLime,
-    borderRadius: 14,
-    paddingHorizontal: 14,
+    borderRadius: 12,
+    paddingHorizontal: 9,
     paddingVertical: 2,
   },
   statNumber: {
