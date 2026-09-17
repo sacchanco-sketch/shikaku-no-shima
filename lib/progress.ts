@@ -80,11 +80,16 @@ const ALL_FIELDS: QuestionField[] = ["関係法令", "労働衛生", "労働生�
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
 /** ローカルタイムゾーンでの日付部分だけを "YYYY-MM-DD" として取り出す */
-function toLocalDateKey(date: Date): string {
+export function toLocalDateKey(date: Date): string {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, "0");
   const d = String(date.getDate()).padStart(2, "0");
   return `${y}-${m}-${d}`;
+}
+
+/** 解答記録から「演習した日」の集合(YYYY-MM-DD)を作る。マスコットの挨拶判定などで使う。 */
+export function getPracticedDateKeys(records: QuestionRecord[]): Set<string> {
+  return new Set(records.map((r) => toLocalDateKey(new Date(r.answeredAt))));
 }
 
 function calculateStreakDays(records: QuestionRecord[]): number {

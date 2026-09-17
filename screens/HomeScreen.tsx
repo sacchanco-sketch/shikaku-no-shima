@@ -4,6 +4,7 @@ import { colors, borderRadius } from "../theme";
 import type { RootStackParamList } from "../navigation/types";
 import type { QuestionField } from "../types/question";
 import HomeProgressSummary from "../components/HomeProgressSummary";
+import MascotGreeting from "../components/MascotGreeting";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Home">;
 
@@ -22,6 +23,8 @@ export default function HomeScreen({ navigation }: Props) {
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
+        <MascotGreeting />
+
         <HomeProgressSummary />
 
         <View style={[styles.card, styles.limeCard]}>
