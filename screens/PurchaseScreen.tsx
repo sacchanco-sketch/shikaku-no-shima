@@ -4,10 +4,20 @@ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { colors } from "../theme";
 import type { RootStackParamList } from "../navigation/types";
 import { PRICE_LABEL, purchase, restore, type PurchaseResult } from "../lib/entitlements";
+import { EXAMS } from "../lib/exams";
+import { FREE_EXAM_KEYS } from "../lib/questionAccess";
 import Mascot from "../components/Mascot";
 import { CheckIcon, CloseIcon } from "../components/Icons";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Purchase">;
+
+// 無料の範囲の比較(回数・問題数は、無料の回の定義と問題データから数える)
+const FREE_EXAM_COUNT = FREE_EXAM_KEYS.length;
+const FREE_QUESTION_COUNT = EXAMS.filter((e) => FREE_EXAM_KEYS.includes(e.key)).reduce(
+  (sum, e) => sum + e.questionIds.length,
+  0
+);
+const ALL_QUESTION_COUNT = EXAMS.reduce((sum, e) => sum + e.questionIds.length, 0);
 
 const BENEFITS = [
   "全11回分の過去問330問、すべて解説つき",
@@ -65,6 +75,24 @@ export default function PurchaseScreen({ navigation }: Props) {
           ))}
         </View>
 
+        <View style={styles.compare}>
+          <View style={[styles.compareCell, styles.compareFree]}>
+            <Text style={styles.compareLabel}>無料</Text>
+            <Text style={styles.compareValue}>
+              最新{FREE_EXAM_COUNT}回 {FREE_QUESTION_COUNT}問
+            </Text>
+          </View>
+          <View style={[styles.compareCell, styles.comparePremium]}>
+            <Text style={styles.compareLabel}>全問題</Text>
+            <Text style={styles.compareValue}>
+              {EXAMS.length}回 {ALL_QUESTION_COUNT}問
+            </Text>
+          </View>
+        </View>
+      </ScrollView>
+
+      {/* 購入ボタンと復元は画面の下に固定する */}
+      <View style={styles.footer}>
         <TouchableOpacity
           style={[styles.buyButton, busy && styles.buyButtonBusy]}
           onPress={() => run(purchase)}
@@ -79,7 +107,7 @@ export default function PurchaseScreen({ navigation }: Props) {
         <TouchableOpacity onPress={() => run(restore)} disabled={busy} style={styles.restoreWrap}>
           <Text style={styles.restoreText}>購入を復元</Text>
         </TouchableOpacity>
-      </ScrollView>
+      </View>
     </SafeAreaView>
   );
 }
@@ -106,9 +134,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   content: {
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
     paddingTop: 4,
-    paddingBottom: 24,
+    paddingBottom: 16,
     alignItems: "stretch",
   },
   hero: {
@@ -153,12 +181,47 @@ const styles = StyleSheet.create({
   },
   benefitText: {
     flex: 1,
-    fontSize: 14,
+    fontSize: 13.5,
     lineHeight: 21,
     color: colors.black,
   },
+  compare: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 22,
+  },
+  compareCell: {
+    flex: 1,
+    height: 64,
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    justifyContent: "center",
+    gap: 2,
+  },
+  compareFree: {
+    borderWidth: 1.5,
+    borderColor: colors.lightBorder,
+  },
+  comparePremium: {
+    borderWidth: 2.5,
+    borderColor: colors.neonLime,
+  },
+  compareLabel: {
+    fontSize: 11,
+    color: colors.textSecondary,
+  },
+  compareValue: {
+    fontSize: 15,
+    fontWeight: "800",
+    color: colors.black,
+  },
+  footer: {
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: 16,
+    backgroundColor: colors.white,
+  },
   buyButton: {
-    marginTop: 28,
     backgroundColor: colors.black,
     borderRadius: 18,
     paddingVertical: 20,
@@ -173,13 +236,13 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   message: {
-    marginTop: 12,
+    marginTop: 10,
     fontSize: 13,
     color: colors.textSecondary,
     textAlign: "center",
   },
   restoreWrap: {
-    marginTop: 14,
+    marginTop: 6,
     alignItems: "center",
     paddingVertical: 6,
   },
