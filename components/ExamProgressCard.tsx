@@ -2,6 +2,7 @@ import { StyleSheet, Text, View } from "react-native";
 import Svg, { Path } from "react-native-svg";
 import { colors } from "../theme";
 import PressableScale from "./PressableScale";
+import { LockIcon } from "./Icons";
 
 type Props = {
   title: string;
@@ -13,6 +14,8 @@ type Props = {
   accuracy: number;
   onPress: () => void;
   accessibilityLabel: string;
+  /** 有料の回(未購入)。鍵を出し、行全体を薄くする。押すと購入画面を開く想定 */
+  locked?: boolean;
 };
 
 /**
@@ -27,16 +30,21 @@ export default function ExamProgressCard({
   accuracy,
   onPress,
   accessibilityLabel,
+  locked = false,
 }: Props) {
   const notStarted = answered === 0;
   const completed = answered >= total;
 
   return (
-    <PressableScale style={styles.card} onPress={onPress} accessibilityLabel={accessibilityLabel}>
+    <PressableScale
+      style={[styles.card, locked && styles.cardLocked]}
+      onPress={onPress}
+      accessibilityLabel={accessibilityLabel}
+    >
       <View style={styles.inner}>
         <View style={styles.main}>
           <View style={styles.topRow}>
-            <Text style={styles.title}>{title}</Text>
+            <Text style={[styles.title, locked && styles.titleLocked]}>{title}</Text>
             <View style={styles.status}>
               <Text style={styles.statusText}>
                 {notStarted ? "未着手" : `${answered}/${total}問 解答済み`}
@@ -50,7 +58,11 @@ export default function ExamProgressCard({
             <View style={[styles.barFill, { width: `${Math.min(100, (answered / total) * 100)}%` }]} />
           </View>
         </View>
-        {completed ? (
+        {locked ? (
+          <View style={styles.lock}>
+            <LockIcon size={20} />
+          </View>
+        ) : completed ? (
           <View style={styles.check}>
             <Svg width={14} height={14} viewBox="0 0 24 24">
               <Path
@@ -77,6 +89,18 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: colors.lightBorder,
     borderRadius: 16,
+  },
+  cardLocked: {
+    opacity: 0.6,
+  },
+  titleLocked: {
+    color: colors.textSecondary,
+  },
+  lock: {
+    width: 24,
+    height: 24,
+    alignItems: "center",
+    justifyContent: "center",
   },
   inner: {
     flexDirection: "row",

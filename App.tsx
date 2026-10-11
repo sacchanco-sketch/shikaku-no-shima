@@ -4,6 +4,7 @@ import { StatusBar } from "expo-status-bar";
 import MainScreen from "./screens/MainScreen";
 import QuizScreen from "./screens/QuizScreen";
 import ResultScreen from "./screens/ResultScreen";
+import PurchaseScreen from "./screens/PurchaseScreen";
 import type { RootStackParamList } from "./navigation/types";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -15,6 +16,11 @@ export default function App() {
         <Stack.Screen name="Home" component={MainScreen} />
         <Stack.Screen name="Quiz" component={QuizScreen} />
         <Stack.Screen name="Result" component={ResultScreen} />
+        <Stack.Screen
+          name="Purchase"
+          component={PurchaseScreen}
+          options={{ presentation: "modal" }}
+        />
       </Stack.Navigator>
       <StatusBar style="auto" />
     </NavigationContainer>

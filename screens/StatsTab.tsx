@@ -13,6 +13,8 @@ import {
 } from "../lib/progress";
 import ProgressRing from "../components/ProgressRing";
 import DailyBarChart from "../components/DailyBarChart";
+import { LockIcon } from "../components/Icons";
+import { setPremiumForDev, useEntitlement } from "../lib/entitlements";
 
 type Props = {
   navigation: NativeStackNavigationProp<RootStackParamList, "Home">;
@@ -21,6 +23,7 @@ type Props = {
 export default function StatsTab({ navigation }: Props) {
   const [stats, setStats] = useState<OverallStats | null>(null);
   const [daily, setDaily] = useState<DailyCount[]>([]);
+  const { isPremium } = useEntitlement();
 
   // 演習から戻ってくるたびに最新の記録を読み直す
   useFocusEffect(
@@ -39,7 +42,9 @@ export default function StatsTab({ navigation }: Props) {
 
   const hasRecords = (stats?.total ?? 0) > 0;
   const incorrectIds = stats?.latestIncorrectQuestionIds ?? [];
-  const canReview = incorrectIds.length > 0;
+  const hasIncorrect = incorrectIds.length > 0;
+  // 「間違えた問題を解く」は有料の機能。無料のときは鍵を付け、押すと購入画面を開く
+  const canReview = isPremium ? hasIncorrect : true;
 
   return (
     <View style={styles.root}>
@@ -98,21 +103,44 @@ export default function StatsTab({ navigation }: Props) {
             <DailyBarChart days={daily} />
           </>
         )}
+
+        {/* 開発用: 本番ビルドには出さない */}
+        {__DEV__ && (
+          <TouchableOpacity
+            onPress={() => setPremiumForDev(!isPremium)}
+            style={styles.devToggle}
+            accessibilityRole="button"
+          >
+            <Text style={styles.devToggleText}>
+              開発用: {isPremium ? "有料" : "無料"}(タップで{isPremium ? "無料" : "有料"}に切り替え)
+            </Text>
+          </TouchableOpacity>
+        )}
       </ScrollView>
 
       <View style={styles.footer}>
-        {!canReview && stats && <Text style={styles.noIncorrectText}>間違えた問題はありません</Text>}
+        {isPremium && !hasIncorrect && stats && (
+          <Text style={styles.noIncorrectText}>間違えた問題はありません</Text>
+        )}
         <TouchableOpacity
           style={[styles.reviewButton, !canReview && styles.reviewButtonDisabled]}
           disabled={!canReview}
-          onPress={() => navigation.navigate("Quiz", { reviewIds: incorrectIds })}
+          onPress={() =>
+            isPremium ? navigation.navigate("Quiz", { reviewIds: incorrectIds }) : navigation.navigate("Purchase")
+          }
           accessibilityState={{ disabled: !canReview }}
         >
           <Text style={styles.reviewButtonText}>
-            {canReview ? `間違えた問題を解く(${incorrectIds.length}問)` : "間違えた問題を解く"}
+            {isPremium && hasIncorrect
+              ? `間違えた問題を解く(${incorrectIds.length}問)`
+              : "間違えた問題を解く"}
           </Text>
           <View style={styles.reviewArrow}>
-            <Text style={styles.reviewArrowText}>→</Text>
+            {isPremium ? (
+              <Text style={styles.reviewArrowText}>→</Text>
+            ) : (
+              <LockIcon size={16} color={colors.black} />
+            )}
           </View>
         </TouchableOpacity>
       </View>
@@ -216,6 +244,15 @@ const styles = StyleSheet.create({
   ringsRow: {
     flexDirection: "row",
     justifyContent: "space-around",
+  },
+  devToggle: {
+    marginTop: 28,
+    alignSelf: "center",
+    paddingVertical: 6,
+  },
+  devToggleText: {
+    fontSize: 11,
+    color: colors.textSecondary,
   },
   footer: {
     paddingHorizontal: 18,

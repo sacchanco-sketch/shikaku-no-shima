@@ -17,6 +17,8 @@ import type { OptionKey, Question } from "../types/question";
 import type { RootStackParamList, SetAnswerRecord } from "../navigation/types";
 import AnswerOption, { type OptionStatus } from "../components/AnswerOption";
 import Mascot from "../components/Mascot";
+import { useEntitlement } from "../lib/entitlements";
+import { filterByEntitlement } from "../lib/questionAccess";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Quiz">;
 
@@ -48,6 +50,7 @@ export default function QuizScreen({ navigation, route }: Props) {
   const questionIds = route.params?.questionIds;
   const title = route.params?.title;
   const fromExam = route.params?.fromExam;
+  const { isPremium, isLoaded: entitlementLoaded } = useEntitlement();
   const isReviewMode = !!reviewIds && reviewIds.length > 0;
   // 過去問など「この問題を、この順番で」と渡された場合。ランダム化も10問への絞り込みもしない
   const isFixedList = !!questionIds && questionIds.length > 0;
@@ -71,6 +74,8 @@ export default function QuizScreen({ navigation, route }: Props) {
   const question = questions[currentIndex] ?? null;
 
   const fetchQuestionSet = useCallback(async () => {
+    // 購入状態を読み終えるまで待つ(無料の範囲で出題するか、全問題から出題するかが決まらないため)
+    if (!entitlementLoaded) return;
     setLoading(true);
     setError(null);
     setQuestions([]);
@@ -98,10 +103,13 @@ export default function QuizScreen({ navigation, route }: Props) {
       );
       setQuestions(sorted);
     } else {
-      setQuestions(shuffle(data as Question[]).slice(0, SET_SIZE));
+      // 復習(reviewIds)は有料機能からしか来ないのでそのまま。それ以外のランダム出題は、
+      // 無料の状態では無料の回の問題の中から出す
+      const pool = reviewIds && reviewIds.length > 0 ? (data as Question[]) : filterByEntitlement(data as Question[], isPremium);
+      setQuestions(shuffle(pool).slice(0, SET_SIZE));
     }
     setLoading(false);
-  }, [field, reviewIds, questionIds, isFixedList]);
+  }, [field, reviewIds, questionIds, isFixedList, isPremium, entitlementLoaded]);
 
   useEffect(() => {
     fetchQuestionSet();

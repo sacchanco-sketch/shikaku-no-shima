@@ -7,6 +7,8 @@ import type { RootStackParamList } from "../navigation/types";
 import { EXAMS, FIELDS, getExam, type Exam } from "../lib/exams";
 import { loadProgress, summarizeIds, type QuestionRecord } from "../lib/progress";
 import ExamProgressCard from "../components/ExamProgressCard";
+import { useEntitlement } from "../lib/entitlements";
+import { canOpenExam } from "../lib/questionAccess";
 
 type Navigation = NativeStackNavigationProp<RootStackParamList, "Home">;
 
@@ -35,9 +37,11 @@ function useRecords(): QuestionRecord[] {
 
 export default function PastExamsTab({ navigation, examKey, onSelectExam }: Props) {
   const records = useRecords();
+  const { isPremium } = useEntitlement();
   const exam = getExam(examKey);
 
-  if (exam) {
+  // 有料の回の詳細は、購入済みでなければ開けない(一覧に戻す)
+  if (exam && canOpenExam(exam.key, isPremium)) {
     return (
       <ExamDetail
         exam={exam}
@@ -47,15 +51,26 @@ export default function PastExamsTab({ navigation, examKey, onSelectExam }: Prop
       />
     );
   }
-  return <ExamList records={records} onSelectExam={onSelectExam} />;
+  return (
+    <ExamList
+      records={records}
+      isPremium={isPremium}
+      onSelectExam={onSelectExam}
+      onLocked={() => navigation.navigate("Purchase")}
+    />
+  );
 }
 
 function ExamList({
   records,
+  isPremium,
   onSelectExam,
+  onLocked,
 }: {
   records: QuestionRecord[];
+  isPremium: boolean;
   onSelectExam: (key: string) => void;
+  onLocked: () => void;
 }) {
   return (
     <ScrollView contentContainerStyle={styles.content}>
@@ -65,6 +80,7 @@ function ExamList({
       <View style={styles.list}>
         {EXAMS.map((exam) => {
           const s = summarizeIds(records, exam.questionIds);
+          const locked = !canOpenExam(exam.key, isPremium);
           return (
             <ExamProgressCard
               key={exam.key}
@@ -72,8 +88,9 @@ function ExamList({
               answered={s.answered}
               total={exam.questionIds.length}
               accuracy={s.accuracy}
-              onPress={() => onSelectExam(exam.key)}
-              accessibilityLabel={`${exam.label}を開く`}
+              locked={locked}
+              onPress={() => (locked ? onLocked() : onSelectExam(exam.key))}
+              accessibilityLabel={locked ? `${exam.label}(有料)` : `${exam.label}を開く`}
             />
           );
         })}

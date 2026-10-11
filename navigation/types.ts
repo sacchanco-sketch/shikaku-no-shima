@@ -30,4 +30,6 @@ export type RootStackParamList = {
   Home: { tab?: TabKey; examKey?: string | null; nonce?: number } | undefined;
   Quiz: QuizScope;
   Result: QuizScope & { setRecords: SetAnswerRecord[] };
+  // 購入画面(下から出るシート)
+  Purchase: undefined;
 };
