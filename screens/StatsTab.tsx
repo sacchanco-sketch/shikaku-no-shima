@@ -127,7 +127,8 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: 22,
     paddingTop: 20,
-    paddingBottom: 16,
+    // 一番下までスクロールしたとき、最後の要素が下のボタンに詰まって見えないように余白を取る
+    paddingBottom: 40,
   },
   title: {
     fontSize: 28,

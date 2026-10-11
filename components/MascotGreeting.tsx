@@ -3,17 +3,19 @@ import { colors } from "../theme";
 
 type Props = {
   message: string;
+  /** しっぽの位置。吹き出しの中心から横にずらす量(px、左が負)。銅像の頭の真上に合わせる */
+  tailOffset?: number;
 };
 
 /**
  * 銅像の頭上に置く吹き出し。下辺中央の小さな三角のしっぽが銅像を指す。
  * メッセージの判定ロジックは lib/mascot.ts の useMascotGreeting
  */
-export default function MascotGreeting({ message }: Props) {
+export default function MascotGreeting({ message, tailOffset = 0 }: Props) {
   return (
     <View style={styles.bubble}>
       <Text style={styles.text}>{message}</Text>
-      <View style={styles.tail} />
+      <View style={[styles.tail, { transform: [{ translateX: tailOffset }, { rotate: "45deg" }] }]} />
     </View>
   );
 }
@@ -50,6 +52,5 @@ const styles = StyleSheet.create({
     borderRightWidth: 1.5,
     borderBottomWidth: 1.5,
     borderColor: colors.black,
-    transform: [{ rotate: "45deg" }],
   },
 });

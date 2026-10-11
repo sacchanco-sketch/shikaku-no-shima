@@ -22,7 +22,7 @@ export interface Exam {
   key: string;
   year: number;
   month: number;
-  /** 例: 2026年4月公表 */
+  /** 例: 2026年4月 過去問 */
   label: string;
   /** 全問題IDを問題番号順に並べたもの */
   questionIds: string[];
@@ -50,7 +50,7 @@ function buildExams(): Exam[] {
       key,
       year,
       month,
-      label: `${year}年${month}月公表`,
+      label: `${year}年${month}月 過去問`,
       questionIds: sorted.map((q) => q.id),
       idsByField,
     });

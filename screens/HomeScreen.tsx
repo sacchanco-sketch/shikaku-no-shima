@@ -5,7 +5,7 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { colors } from "../theme";
 import type { RootStackParamList } from "../navigation/types";
 import { loadProgress, summarize, type OverallStats } from "../lib/progress";
-import { useMascotGreeting } from "../lib/mascot";
+import { mascotHeadOffset, useMascotGreeting } from "../lib/mascot";
 import Mascot from "../components/Mascot";
 import MascotGreeting from "../components/MascotGreeting";
 import FieldCell from "../components/FieldCell";
@@ -63,7 +63,13 @@ export default function HomeScreen({ navigation }: Props) {
         {/* 吹き出し+銅像+円を1つのまとまりにして、画面の上寄りに置く */}
         <View style={styles.group}>
           <View style={styles.bubbleArea}>
-            {greeting && <MascotGreeting message={greeting.message} />}
+            {greeting && (
+              <MascotGreeting
+                message={greeting.message}
+                // 銅像の頭の真上に向ける。ポーズによって頭の位置が違うので画像ごとの値を使い、最低でも少し左に寄せる
+                tailOffset={Math.min(-4, mascotHeadOffset(greeting.pose, statueHeight))}
+              />
+            )}
           </View>
           <View style={{ height: statueHeight + 6, marginTop: BUBBLE_GAP }}>
             <View

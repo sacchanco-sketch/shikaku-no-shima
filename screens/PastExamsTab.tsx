@@ -6,7 +6,7 @@ import { colors } from "../theme";
 import type { RootStackParamList } from "../navigation/types";
 import { EXAMS, FIELDS, getExam, type Exam } from "../lib/exams";
 import { loadProgress, summarizeIds, type QuestionRecord } from "../lib/progress";
-import PressableScale from "../components/PressableScale";
+import ExamProgressCard from "../components/ExamProgressCard";
 
 type Navigation = NativeStackNavigationProp<RootStackParamList, "Home">;
 
@@ -50,19 +50,6 @@ export default function PastExamsTab({ navigation, examKey, onSelectExam }: Prop
   return <ExamList records={records} onSelectExam={onSelectExam} />;
 }
 
-/** 正答率のバー+%(未回答は空のバーと「–」。未回答の問題は正答率に含めない) */
-function AccuracyBar({ answered, accuracy }: { answered: number; accuracy: number }) {
-  const percent = Math.round(accuracy * 100);
-  return (
-    <View style={styles.accuracyRow}>
-      <View style={styles.barTrack}>
-        <View style={[styles.barFill, { width: `${answered > 0 ? percent : 0}%` }]} />
-      </View>
-      <Text style={styles.accuracyText}>{answered > 0 ? `正答率 ${percent}%` : "正答率 –"}</Text>
-    </View>
-  );
-}
-
 function ExamList({
   records,
   onSelectExam,
@@ -79,25 +66,15 @@ function ExamList({
         {EXAMS.map((exam) => {
           const s = summarizeIds(records, exam.questionIds);
           return (
-            <PressableScale
+            <ExamProgressCard
               key={exam.key}
-              style={styles.card}
+              title={exam.label}
+              answered={s.answered}
+              total={exam.questionIds.length}
+              accuracy={s.accuracy}
               onPress={() => onSelectExam(exam.key)}
               accessibilityLabel={`${exam.label}を開く`}
-            >
-              <View style={styles.cardInner}>
-                <View style={styles.cardMain}>
-                  <View style={styles.cardTopRow}>
-                    <Text style={styles.cardTitle}>{exam.label}</Text>
-                    <Text style={styles.cardCount}>
-                      {s.answered}/{exam.questionIds.length}問 解答済み
-                    </Text>
-                  </View>
-                  <AccuracyBar answered={s.answered} accuracy={s.accuracy} />
-                </View>
-                <Text style={styles.chevron}>›</Text>
-              </View>
-            </PressableScale>
+            />
           );
         })}
       </View>
@@ -143,27 +120,17 @@ function ExamDetail({
           const ids = exam.idsByField[field];
           const s = summarizeIds(records, ids);
           return (
-            <PressableScale
+            <ExamProgressCard
               key={field}
-              style={styles.card}
+              title={field}
+              answered={s.answered}
+              total={ids.length}
+              accuracy={s.accuracy}
               onPress={() =>
                 navigation.navigate("Quiz", { questionIds: ids, title: `${exam.label} ${field}` })
               }
               accessibilityLabel={`${field}を解く`}
-            >
-              <View style={styles.cardInner}>
-                <View style={styles.cardMain}>
-                  <View style={styles.cardTopRow}>
-                    <Text style={styles.cardTitle}>{field}</Text>
-                    <Text style={styles.cardCount}>
-                      {ids.length}問・{s.answered}問 解答済み
-                    </Text>
-                  </View>
-                  <AccuracyBar answered={s.answered} accuracy={s.accuracy} />
-                </View>
-                <Text style={styles.chevron}>›</Text>
-              </View>
-            </PressableScale>
+            />
           );
         })}
       </View>
@@ -175,7 +142,8 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: 22,
     paddingTop: 20,
-    paddingBottom: 24,
+    // 一番下までスクロールしたとき、最後の行がタブバーに詰まって見えないように余白を取る
+    paddingBottom: 40,
   },
   title: {
     fontSize: 28,
@@ -202,67 +170,6 @@ const styles = StyleSheet.create({
   list: {
     gap: 10,
     marginTop: 16,
-  },
-  card: {
-    backgroundColor: colors.white,
-    borderWidth: 1.5,
-    borderColor: colors.lightBorder,
-    borderRadius: 16,
-  },
-  cardInner: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 14,
-    paddingLeft: 16,
-    paddingRight: 12,
-    gap: 8,
-  },
-  cardMain: {
-    flex: 1,
-    gap: 10,
-  },
-  cardTopRow: {
-    flexDirection: "row",
-    alignItems: "baseline",
-    justifyContent: "space-between",
-    flexWrap: "wrap",
-    columnGap: 8,
-  },
-  cardTitle: {
-    fontSize: 16,
-    fontWeight: "800",
-    color: colors.black,
-  },
-  cardCount: {
-    fontSize: 12,
-    color: colors.textSecondary,
-  },
-  accuracyRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
-  barTrack: {
-    flex: 1,
-    height: 5,
-    borderRadius: 9,
-    backgroundColor: colors.lightBorder,
-    overflow: "hidden",
-  },
-  barFill: {
-    height: "100%",
-    borderRadius: 9,
-    backgroundColor: colors.black,
-  },
-  accuracyText: {
-    fontSize: 11,
-    color: colors.textSecondary,
-    minWidth: 66,
-    textAlign: "right",
-  },
-  chevron: {
-    fontSize: 24,
-    color: colors.textSecondary,
   },
   bigButton: {
     marginTop: 20,

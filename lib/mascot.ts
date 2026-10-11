@@ -19,6 +19,31 @@ export const MASCOT_IMAGES: Record<MascotPose, ImageSourcePropType> = {
   walking: require("../assets/mascot/walking.png"),
 };
 
+/** 画像(縦600px基準)の横幅/高さ。表示幅の計算に使う */
+const MASCOT_ASPECT: Record<MascotPose, number> = {
+  wave: 347 / 600,
+  reading: 308 / 600,
+  bow: 328 / 600,
+  fistpump: 285 / 600,
+  thumbsup: 252 / 600,
+  walking: 334 / 600,
+};
+
+/** 画像の横方向で、頭が中心から見てどこにあるか(画像の幅に対する割合。0.5が中心) */
+const MASCOT_HEAD_X: Record<MascotPose, number> = {
+  wave: 0.41,
+  reading: 0.33,
+  bow: 0.4,
+  fistpump: 0.4,
+  thumbsup: 0.51,
+  walking: 0.4,
+};
+
+/** 高さ height で表示したときの、画像の中心から頭までの横ずれ(px。左が負) */
+export function mascotHeadOffset(pose: MascotPose, height: number): number {
+  return (MASCOT_HEAD_X[pose] - 0.5) * MASCOT_ASPECT[pose] * height;
+}
+
 const MESSAGES_NO_RECORD = [
   "はじめまして！ここから、少しずつ進めていこう。",
   "ようこそ！今日は1問だけでも、始めてみよう。",

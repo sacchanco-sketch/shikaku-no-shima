@@ -17,7 +17,8 @@ export default function DailyBarChart({ days }: Props) {
         const height = d.count === 0 ? 3 : Math.max(6, Math.round((d.count / max) * BAR_AREA_HEIGHT));
         return (
           <View key={d.dateKey} style={styles.column}>
-            <Text style={styles.count}>{d.count}</Text>
+            {/* 0問の日は数字を出さない(高さは保つので棒の位置はそろう) */}
+            <Text style={[styles.count, d.count === 0 && styles.countHidden]}>{d.count}</Text>
             <View style={styles.barArea}>
               <View
                 style={[
@@ -51,6 +52,9 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "700",
     color: colors.black,
+  },
+  countHidden: {
+    opacity: 0,
   },
   barArea: {
     height: BAR_AREA_HEIGHT,
