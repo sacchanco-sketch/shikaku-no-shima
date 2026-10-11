@@ -94,7 +94,7 @@ function ExamDetail({
   onBack: () => void;
 }) {
   const startAll = () =>
-    navigation.navigate("Quiz", { questionIds: exam.questionIds, title: exam.label });
+    navigation.navigate("Quiz", { questionIds: exam.questionIds, title: exam.label, fromExam: true });
 
   return (
     <ScrollView contentContainerStyle={styles.content}>
@@ -127,7 +127,11 @@ function ExamDetail({
               total={ids.length}
               accuracy={s.accuracy}
               onPress={() =>
-                navigation.navigate("Quiz", { questionIds: ids, title: `${exam.label} ${field}` })
+                navigation.navigate("Quiz", {
+                  questionIds: ids,
+                  title: `${exam.label} ${field}`,
+                  fromExam: true,
+                })
               }
               accessibilityLabel={`${field}を解く`}
             />

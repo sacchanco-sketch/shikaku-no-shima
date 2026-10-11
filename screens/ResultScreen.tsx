@@ -9,6 +9,8 @@ import Mascot from "../components/Mascot";
 type Props = NativeStackScreenProps<RootStackParamList, "Result">;
 
 const ALL_FIELDS: QuestionField[] = ["関係法令", "労働衛生", "労働生理"];
+const CELLS_PER_ROW = 6;
+const RETRY_TITLE = "間違えた問題の解き直し";
 
 function resultMessage(accuracy: number): string {
   if (accuracy === 1) return "パーフェクト！";
@@ -18,13 +20,14 @@ function resultMessage(accuracy: number): string {
 }
 
 export default function ResultScreen({ navigation, route }: Props) {
-  const { field, reviewIds, questionIds, title, setRecords } = route.params;
-  // 過去問から入った場合(出題数が固定)は「もう10問」の代わりに「一覧に戻る」を出す
-  const isFromExam = !!questionIds && questionIds.length > 0;
+  const { field, reviewIds, questionIds, title, fromExam, setRecords } = route.params;
+  const isFixedList = !!questionIds && questionIds.length > 0;
 
   const total = setRecords.length;
   const correctCount = setRecords.filter((r) => r.correct).length;
   const accuracy = total > 0 ? correctCount / total : 0;
+  // 今回の出題で不正解だった問題(出題順)
+  const incorrectIds = setRecords.filter((r) => !r.correct).map((r) => r.questionId);
 
   const byField = ALL_FIELDS.map((f) => {
     const records = setRecords.filter((r) => r.field === f);
@@ -38,13 +41,30 @@ export default function ResultScreen({ navigation, route }: Props) {
   });
 
   // 出題範囲にある分野だけ表示する。分野指定ならその分野、全分野から出したときは3分野すべて、
-  // 過去問・復習のように範囲が問題の組み合わせで決まる場合は、実際に出題された分野だけ
-  const visibleFields =
-    field && !reviewIds && !isFromExam
-      ? byField.filter((f) => f.field === field)
-      : isFromExam || (reviewIds && reviewIds.length > 0)
-        ? byField.filter((f) => f.total > 0)
+  // 過去問・復習・解き直しのように範囲が問題の組み合わせで決まる場合は、実際に出題された分野だけ
+  const visibleFields = isFixedList
+    ? byField.filter((f) => f.total > 0)
+    : reviewIds && reviewIds.length > 0
+      ? byField.filter((f) => f.total > 0)
+      : field
+        ? byField.filter((f) => f.field === field)
         : byField;
+
+  // 問題番号のセルを1行に6個ずつ並べる(最後の行は空きセルで幅をそろえる)
+  const rows: (typeof setRecords)[] = [];
+  for (let i = 0; i < setRecords.length; i += CELLS_PER_ROW) {
+    rows.push(setRecords.slice(i, i + CELLS_PER_ROW));
+  }
+
+  const retryIncorrect = () =>
+    navigation.replace("Quiz", {
+      // 結果画面から結果画面へ。「もう10問」や「一覧に戻る」の行き先は元の出題のまま引き継ぐ
+      field,
+      reviewIds,
+      fromExam,
+      questionIds: incorrectIds,
+      title: RETRY_TITLE,
+    });
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -82,33 +102,83 @@ export default function ResultScreen({ navigation, route }: Props) {
           </View>
         </View>
 
-        <View style={styles.buttonRow}>
-          <TouchableOpacity
-            style={styles.secondaryButton}
-            onPress={() => navigation.popTo("Home", { tab: "home", nonce: Date.now() })}
-          >
-            <Text style={styles.secondaryButtonText}>ホームに戻る</Text>
-          </TouchableOpacity>
-          {isFromExam ? (
-            <TouchableOpacity
-              style={styles.primaryButton}
-              onPress={() => navigation.popTo("Home", { tab: "exams", examKey: null, nonce: Date.now() })}
-            >
-              <Text style={styles.primaryButtonText}>一覧に戻る</Text>
+        <View>
+          <Text style={styles.sectionTitle}>問題ごとの結果</Text>
+          <View style={styles.cellRows}>
+            {rows.map((row, rowIndex) => (
+              <View key={rowIndex} style={styles.cellRow}>
+                {Array.from({ length: CELLS_PER_ROW }, (_, col) => {
+                  const record = row[col];
+                  if (!record) return <View key={col} style={styles.cellSpacer} />;
+                  const number = rowIndex * CELLS_PER_ROW + col + 1;
+                  return (
+                    <View
+                      key={col}
+                      style={[styles.cell, record.correct ? styles.cellCorrect : styles.cellIncorrect]}
+                      accessibilityLabel={`${number}問目 ${record.correct ? "正解" : "不正解"}`}
+                    >
+                      <Text
+                        style={[
+                          styles.cellText,
+                          { color: record.correct ? colors.white : colors.black },
+                        ]}
+                      >
+                        {number}
+                      </Text>
+                    </View>
+                  );
+                })}
+              </View>
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.bottomArea}>
+          {incorrectIds.length > 0 ? (
+            <TouchableOpacity style={styles.retryButton} onPress={retryIncorrect}>
+              <Text style={styles.retryButtonText}>
+                間違えた問題だけ解き直す({incorrectIds.length}問)
+              </Text>
+              <View style={styles.retryArrow}>
+                <Text style={styles.retryArrowText}>→</Text>
+              </View>
             </TouchableOpacity>
           ) : (
-            <TouchableOpacity
-              style={styles.primaryButton}
-              onPress={() => navigation.replace("Quiz", { field, reviewIds })}
-            >
-              <Text style={styles.primaryButtonText}>もう10問解く</Text>
-            </TouchableOpacity>
+            <Text style={styles.allCorrectText}>全問正解です</Text>
           )}
+
+          <View style={styles.buttonRow}>
+            <TouchableOpacity
+              style={styles.secondaryButton}
+              onPress={() => navigation.popTo("Home", { tab: "home", nonce: Date.now() })}
+            >
+              <Text style={styles.secondaryButtonText}>ホームに戻る</Text>
+            </TouchableOpacity>
+            {fromExam ? (
+              <TouchableOpacity
+                style={styles.primaryButton}
+                onPress={() =>
+                  navigation.popTo("Home", { tab: "exams", examKey: null, nonce: Date.now() })
+                }
+              >
+                <Text style={styles.primaryButtonText}>一覧に戻る</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={styles.primaryButton}
+                onPress={() => navigation.replace("Quiz", { field, reviewIds })}
+              >
+                <Text style={styles.primaryButtonText}>もう10問解く</Text>
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
       </ScrollView>
     </SafeAreaView>
   );
 }
+
+const CELL_SIZE = 40;
 
 const styles = StyleSheet.create({
   safeArea: {
@@ -181,11 +251,78 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-around",
   },
+  cellRows: {
+    gap: 8,
+  },
+  cellRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  cell: {
+    width: CELL_SIZE,
+    height: CELL_SIZE,
+    borderRadius: CELL_SIZE / 2,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  cellSpacer: {
+    width: CELL_SIZE,
+    height: CELL_SIZE,
+  },
+  cellCorrect: {
+    backgroundColor: colors.black,
+  },
+  cellIncorrect: {
+    backgroundColor: colors.white,
+    borderWidth: 1.5,
+    borderColor: colors.lightBorder,
+  },
+  cellText: {
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  bottomArea: {
+    marginTop: "auto",
+    gap: 12,
+    paddingTop: 8,
+  },
+  retryButton: {
+    backgroundColor: colors.black,
+    borderRadius: 18,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  retryButtonText: {
+    color: colors.white,
+    fontSize: 16,
+    fontWeight: "800",
+  },
+  retryArrow: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: colors.neonLime,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  retryArrowText: {
+    color: colors.black,
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  allCorrectText: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: colors.black,
+    textAlign: "center",
+    paddingVertical: 12,
+  },
   buttonRow: {
     flexDirection: "row",
     gap: 12,
-    marginTop: "auto",
-    paddingTop: 8,
   },
   secondaryButton: {
     flex: 1,

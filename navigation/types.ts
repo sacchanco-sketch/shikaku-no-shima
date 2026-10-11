@@ -2,6 +2,7 @@ import type { QuestionField } from "../types/question";
 
 /** 1セット(10問/30問)の中で、1問答えるたびに積み上げていく簡易記録。ResultScreenの集計に使う。 */
 export type SetAnswerRecord = {
+  questionId: string;
   field: QuestionField;
   correct: boolean;
 };
@@ -19,6 +20,9 @@ export type QuizScope = {
   // questionIds が無ければ従来どおり(ランダム10問)。
   questionIds?: string[];
   title?: string;
+  // 過去問タブから始めた出題。結果画面で「もう10問」の代わりに「一覧に戻る」を出す。
+  // 結果画面から始める「間違えた問題の解き直し」にも引き継ぐ。
+  fromExam?: boolean;
 };
 
 export type RootStackParamList = {

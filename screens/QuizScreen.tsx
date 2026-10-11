@@ -47,6 +47,7 @@ export default function QuizScreen({ navigation, route }: Props) {
   const reviewIds = route.params?.reviewIds;
   const questionIds = route.params?.questionIds;
   const title = route.params?.title;
+  const fromExam = route.params?.fromExam;
   const isReviewMode = !!reviewIds && reviewIds.length > 0;
   // 過去問など「この問題を、この順番で」と渡された場合。ランダム化も10問への絞り込みもしない
   const isFixedList = !!questionIds && questionIds.length > 0;
@@ -114,7 +115,7 @@ export default function QuizScreen({ navigation, route }: Props) {
     const correct = key === question.answer;
 
     setSelected(key);
-    setSetRecords((prev) => [...prev, { field: question.field, correct }]);
+    setSetRecords((prev) => [...prev, { questionId: question.id, field: question.field, correct }]);
     recordAnswer({
       questionId: question.id,
       field: question.field,
@@ -139,7 +140,7 @@ export default function QuizScreen({ navigation, route }: Props) {
       setSelected(null);
       return;
     }
-    navigation.replace("Result", { field, reviewIds, questionIds, title, setRecords });
+    navigation.replace("Result", { field, reviewIds, questionIds, title, fromExam, setRecords });
   };
 
   const getOptionStatus = (key: OptionKey): OptionStatus => {
@@ -154,7 +155,7 @@ export default function QuizScreen({ navigation, route }: Props) {
       <View style={styles.header}>
         <View style={styles.headerText}>
           <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Text style={styles.backLink}>{isFixedList ? "← 過去問へ" : "← ホームへ"}</Text>
+            <Text style={styles.backLink}>{fromExam ? "← 過去問へ" : "← ホームへ"}</Text>
           </TouchableOpacity>
           <Text style={styles.headerTitle}>
             {title ?? (isReviewMode ? "苦手問題の復習" : (field ?? "今日の問題"))}
@@ -190,7 +191,7 @@ export default function QuizScreen({ navigation, route }: Props) {
             <View style={styles.metaRow}>
               <Text style={styles.metaText}>{question.field}</Text>
               <Text style={styles.metaText}>
-                {question.exam_label}　問{question.question_number}
+                {question.year}年{question.month}月 過去問　問{question.question_number}
               </Text>
             </View>
 
