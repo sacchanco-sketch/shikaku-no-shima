@@ -45,7 +45,11 @@ function shuffle<T>(input: T[]): T[] {
 export default function QuizScreen({ navigation, route }: Props) {
   const field = route.params?.field;
   const reviewIds = route.params?.reviewIds;
+  const questionIds = route.params?.questionIds;
+  const title = route.params?.title;
   const isReviewMode = !!reviewIds && reviewIds.length > 0;
+  // 過去問など「この問題を、この順番で」と渡された場合。ランダム化も10問への絞り込みもしない
+  const isFixedList = !!questionIds && questionIds.length > 0;
 
   const [questions, setQuestions] = useState<Question[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -76,7 +80,8 @@ export default function QuizScreen({ navigation, route }: Props) {
     // このアプリの問題数(最大330件)は小さいため、対象範囲を一括取得してから
     // クライアント側でシャッフル・10件抽出する(往復回数を抑えるため)。
     const baseQuery = supabase.from("questions").select("*");
-    const { data, error: fetchError } = await applyScope(baseQuery, field, reviewIds);
+    const scoped = isFixedList ? baseQuery.in("id", questionIds) : applyScope(baseQuery, field, reviewIds);
+    const { data, error: fetchError } = await scoped;
 
     if (fetchError || !data || data.length === 0) {
       setError(fetchError?.message ?? "問題が見つかりませんでした。");
@@ -84,10 +89,18 @@ export default function QuizScreen({ navigation, route }: Props) {
       return;
     }
 
-    const picked = shuffle(data as Question[]).slice(0, SET_SIZE);
-    setQuestions(picked);
+    if (isFixedList) {
+      // 渡された順(問題番号順)に並べ直す。取得結果の順序はDB任せなので、IDの並びを正とする
+      const order = new Map(questionIds.map((id, i) => [id, i]));
+      const sorted = [...(data as Question[])].sort(
+        (a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0)
+      );
+      setQuestions(sorted);
+    } else {
+      setQuestions(shuffle(data as Question[]).slice(0, SET_SIZE));
+    }
     setLoading(false);
-  }, [field, reviewIds]);
+  }, [field, reviewIds, questionIds, isFixedList]);
 
   useEffect(() => {
     fetchQuestionSet();
@@ -126,7 +139,7 @@ export default function QuizScreen({ navigation, route }: Props) {
       setSelected(null);
       return;
     }
-    navigation.replace("Result", { field, reviewIds, setRecords });
+    navigation.replace("Result", { field, reviewIds, questionIds, title, setRecords });
   };
 
   const getOptionStatus = (key: OptionKey): OptionStatus => {
@@ -141,10 +154,10 @@ export default function QuizScreen({ navigation, route }: Props) {
       <View style={styles.header}>
         <View style={styles.headerText}>
           <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Text style={styles.backLink}>← ホームへ</Text>
+            <Text style={styles.backLink}>{isFixedList ? "← 過去問へ" : "← ホームへ"}</Text>
           </TouchableOpacity>
           <Text style={styles.headerTitle}>
-            {isReviewMode ? "苦手問題の復習" : (field ?? "今日の問題")}
+            {title ?? (isReviewMode ? "苦手問題の復習" : (field ?? "今日の問題"))}
           </Text>
           {questions.length > 0 && (
             <Text style={styles.headerProgress}>
@@ -247,7 +260,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     color: colors.black,
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: "800",
   },
   headerProgress: {

@@ -67,8 +67,8 @@ export interface OverallStats {
   correct: number;
   accuracy: number;
   byField: FieldStats[];
-  // 直近の解答で不正解だった問題ID一覧(新しい順、重複除去)
-  recentIncorrectQuestionIds: string[];
+  // 「最新の結果が不正解」の問題ID一覧(新しい順)。同じ問題を何度も解いている場合は最新の1回だけで判定する
+  latestIncorrectQuestionIds: string[];
   // 直近7日間(過去168時間)に解いた問題数
   last7DaysCount: number;
   // 連続学習日数。今日分がまだ無い場合は「昨日までの連続日数」を返す
@@ -90,6 +90,68 @@ export function toLocalDateKey(date: Date): string {
 /** 解答記録から「演習した日」の集合(YYYY-MM-DD)を作る。マスコットの挨拶判定などで使う。 */
 export function getPracticedDateKeys(records: QuestionRecord[]): Set<string> {
   return new Set(records.map((r) => toLocalDateKey(new Date(r.answeredAt))));
+}
+
+/**
+ * 問題ごとの「最新の解答」。同じ問題を何度解いていても1問につき1件(最後に解いた結果)になる。
+ * 返す Map は、最新の解答が古い順に並ぶ(records は時系列で追記されている前提)。
+ */
+export function getLatestResults(records: QuestionRecord[]): Map<string, QuestionRecord> {
+  const latest = new Map<string, QuestionRecord>();
+  for (const r of records) {
+    latest.delete(r.questionId); // 後から入れ直して、Mapの順序=最新解答の古い順に保つ
+    latest.set(r.questionId, r);
+  }
+  return latest;
+}
+
+export interface IdsStats {
+  /** 範囲内の問題のうち、1回以上解いた問題数 */
+  answered: number;
+  correct: number;
+  /** 解いた問題だけが対象(未回答は含めない)。最新の結果で判定。0〜1 */
+  accuracy: number;
+}
+
+/** 指定した問題ID群(過去問の1回分・1分野など)の解答済み数と正答率 */
+export function summarizeIds(records: QuestionRecord[], ids: string[]): IdsStats {
+  const latest = getLatestResults(records);
+  let answered = 0;
+  let correct = 0;
+  for (const id of ids) {
+    const r = latest.get(id);
+    if (!r) continue;
+    answered += 1;
+    if (r.isCorrect) correct += 1;
+  }
+  return { answered, correct, accuracy: answered > 0 ? correct / answered : 0 };
+}
+
+export interface DailyCount {
+  dateKey: string;
+  /** 曜日(日〜土) */
+  weekday: string;
+  count: number;
+  isToday: boolean;
+}
+
+const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
+
+/** 今日を含む直近 days 日分の、日ごとの解答数(古い日→今日の順) */
+export function getDailyCounts(records: QuestionRecord[], days = 7): DailyCount[] {
+  const counts = new Map<string, number>();
+  for (const r of records) {
+    const key = toLocalDateKey(new Date(r.answeredAt));
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  const result: DailyCount[] = [];
+  for (let i = days - 1; i >= 0; i -= 1) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const key = toLocalDateKey(d);
+    result.push({ dateKey: key, weekday: WEEKDAYS[d.getDay()], count: counts.get(key) ?? 0, isToday: i === 0 });
+  }
+  return result;
 }
 
 function calculateStreakDays(records: QuestionRecord[]): number {
@@ -130,15 +192,10 @@ export function summarize(progress: ProgressData): OverallStats {
   const total = records.length;
   const correct = records.filter((r) => r.isCorrect).length;
 
-  const recentIncorrectQuestionIds: string[] = [];
-  const seen = new Set<string>();
-  for (let i = records.length - 1; i >= 0; i -= 1) {
-    const r = records[i];
-    if (!r.isCorrect && !seen.has(r.questionId)) {
-      seen.add(r.questionId);
-      recentIncorrectQuestionIds.push(r.questionId);
-    }
-  }
+  const latestIncorrectQuestionIds = [...getLatestResults(records).values()]
+    .filter((r) => !r.isCorrect)
+    .reverse()
+    .map((r) => r.questionId);
 
   const now = Date.now();
   const last7DaysCount = records.filter(
@@ -150,7 +207,7 @@ export function summarize(progress: ProgressData): OverallStats {
     correct,
     accuracy: total > 0 ? correct / total : 0,
     byField,
-    recentIncorrectQuestionIds,
+    latestIncorrectQuestionIds,
     last7DaysCount,
     streakDays: calculateStreakDays(records),
   };

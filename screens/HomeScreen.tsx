@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react";
-import { SafeAreaView, StyleSheet, Text, TouchableOpacity, View, type LayoutChangeEvent } from "react-native";
+import { StyleSheet, Text, TouchableOpacity, View, type LayoutChangeEvent } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
-import type { NativeStackScreenProps } from "@react-navigation/native-stack";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { colors } from "../theme";
 import type { RootStackParamList } from "../navigation/types";
 import { loadProgress, summarize, type OverallStats } from "../lib/progress";
@@ -10,18 +10,18 @@ import Mascot from "../components/Mascot";
 import MascotGreeting from "../components/MascotGreeting";
 import FieldCell from "../components/FieldCell";
 
-type Props = NativeStackScreenProps<RootStackParamList, "Home">;
+type Props = { navigation: NativeStackNavigationProp<RootStackParamList, "Home"> };
 
 // 銅像は最大230px・円は最大220px。画面が低い端末では、下の要素(数字・分野セル)を確保した残りに収まるよう縮める。
 const BUBBLE_AREA = 58; // 吹き出し(最大2行)の置き場の高さ。吹き出しは下揃えで、銅像の頭の BUBBLE_GAP 上に来る
 const BUBBLE_GAP = 12;
 const STATUE_MAX = 230;
-const STATUE_MIN = 150;
+const STATUE_MIN = 120;
 const CIRCLE_MAX = 220;
-const GROUP_TO_STATS = 36; // 銅像グループと数字の間
+const GROUP_TO_STATS = 24; // 銅像グループと数字の間
 // 銅像そのもの以外の、銅像グループ〜分野セルの固定の高さ(吹き出し置き場+隙間+銅像下端のオフセット
 // +数字との間隔+数字ブロック+余白の最小値+見出し+セル)。bodyの高さからこれを引いた残りが銅像に使える高さ。
-const FIXED_BELOW_STATUE = BUBBLE_AREA + BUBBLE_GAP + 6 + GROUP_TO_STATS + 82 + 14 + 29 + 91;
+const FIXED_BELOW_STATUE = BUBBLE_AREA + BUBBLE_GAP + 6 + GROUP_TO_STATS + 82 + 8 + 32 + 93 + 4;
 
 export default function HomeScreen({ navigation }: Props) {
   const [stats, setStats] = useState<OverallStats | null>(null);
@@ -52,7 +52,7 @@ export default function HomeScreen({ navigation }: Props) {
   const circleSize = Math.min(CIRCLE_MAX, Math.round(statueHeight * 0.96));
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <View style={styles.safeArea}>
       <View style={styles.topRow}>
         <View style={styles.pill}>
           <Text style={styles.pillText}>第二種衛生管理者</Text>
@@ -110,7 +110,7 @@ export default function HomeScreen({ navigation }: Props) {
           </View>
         </TouchableOpacity>
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -143,7 +143,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
   },
   topRow: {
-    paddingTop: 20,
+    paddingTop: 12,
     paddingHorizontal: 22,
     flexDirection: "row",
     justifyContent: "flex-end",
@@ -161,6 +161,8 @@ const styles = StyleSheet.create({
   },
   body: {
     flex: 1,
+    // 中身の高さより小さくなれるようにする(Webでは flex:1 の最小高さが中身で決まり、残り高さを測れなくなるため)
+    minHeight: 0,
     marginTop: 8,
   },
   group: {
@@ -184,7 +186,7 @@ const styles = StyleSheet.create({
   },
   flexSpacerTop: {
     flex: 1,
-    minHeight: 14,
+    minHeight: 8,
   },
   flexSpacerBottom: {
     flex: 1,
@@ -246,12 +248,12 @@ const styles = StyleSheet.create({
   ctaWrap: {
     paddingHorizontal: 18,
     paddingTop: 32,
-    paddingBottom: 22,
+    paddingBottom: 12,
   },
   cta: {
     backgroundColor: colors.black,
     borderRadius: 18,
-    paddingVertical: 18,
+    paddingVertical: 14,
     paddingHorizontal: 20,
     flexDirection: "row",
     justifyContent: "space-between",

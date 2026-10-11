@@ -18,7 +18,9 @@ function resultMessage(accuracy: number): string {
 }
 
 export default function ResultScreen({ navigation, route }: Props) {
-  const { field, reviewIds, setRecords } = route.params;
+  const { field, reviewIds, questionIds, title, setRecords } = route.params;
+  // 過去問から入った場合(出題数が固定)は「もう10問」の代わりに「一覧に戻る」を出す
+  const isFromExam = !!questionIds && questionIds.length > 0;
 
   const total = setRecords.length;
   const correctCount = setRecords.filter((r) => r.correct).length;
@@ -35,10 +37,20 @@ export default function ResultScreen({ navigation, route }: Props) {
     };
   });
 
+  // 出題範囲にある分野だけ表示する。分野指定ならその分野、全分野から出したときは3分野すべて、
+  // 過去問・復習のように範囲が問題の組み合わせで決まる場合は、実際に出題された分野だけ
+  const visibleFields =
+    field && !reviewIds && !isFromExam
+      ? byField.filter((f) => f.field === field)
+      : isFromExam || (reviewIds && reviewIds.length > 0)
+        ? byField.filter((f) => f.total > 0)
+        : byField;
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>今回の結果</Text>
+        {title && <Text style={styles.headerSubtitle}>{title}</Text>}
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
@@ -57,7 +69,7 @@ export default function ResultScreen({ navigation, route }: Props) {
         <View>
           <Text style={styles.sectionTitle}>分野別の内訳</Text>
           <View style={styles.ringsRow}>
-            {byField.map((f) => (
+            {visibleFields.map((f) => (
               <ProgressRing
                 key={f.field}
                 size={64}
@@ -71,15 +83,27 @@ export default function ResultScreen({ navigation, route }: Props) {
         </View>
 
         <View style={styles.buttonRow}>
-          <TouchableOpacity style={styles.secondaryButton} onPress={() => navigation.popToTop()}>
+          <TouchableOpacity
+            style={styles.secondaryButton}
+            onPress={() => navigation.popTo("Home", { tab: "home", nonce: Date.now() })}
+          >
             <Text style={styles.secondaryButtonText}>ホームに戻る</Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.primaryButton}
-            onPress={() => navigation.replace("Quiz", { field, reviewIds })}
-          >
-            <Text style={styles.primaryButtonText}>もう10問解く</Text>
-          </TouchableOpacity>
+          {isFromExam ? (
+            <TouchableOpacity
+              style={styles.primaryButton}
+              onPress={() => navigation.popTo("Home", { tab: "exams", examKey: null, nonce: Date.now() })}
+            >
+              <Text style={styles.primaryButtonText}>一覧に戻る</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={styles.primaryButton}
+              onPress={() => navigation.replace("Quiz", { field, reviewIds })}
+            >
+              <Text style={styles.primaryButtonText}>もう10問解く</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -101,6 +125,11 @@ const styles = StyleSheet.create({
     color: colors.black,
     fontSize: 22,
     fontWeight: "700",
+  },
+  headerSubtitle: {
+    color: colors.textSecondary,
+    fontSize: 13,
+    marginTop: 2,
   },
   content: {
     padding: 20,
