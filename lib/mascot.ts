@@ -29,13 +29,17 @@ const MASCOT_ASPECT: Record<MascotPose, number> = {
   walking: 334 / 600,
 };
 
-/** 画像の横方向で、頭が中心から見てどこにあるか(画像の幅に対する割合。0.5が中心) */
+/**
+ * 画像の横方向で、頭の中心がどこにあるか(画像の幅に対する割合。0.5が中央)。
+ * 切り出したPNGに0.1刻みの目盛りを重ねて、髪の左端〜耳の右端の中央を目で読み取った値。
+ * (お辞儀は頭が大きく左に出るので、中央から約0.3も左にずれる)
+ */
 const MASCOT_HEAD_X: Record<MascotPose, number> = {
-  wave: 0.41,
+  wave: 0.42,
   reading: 0.33,
-  bow: 0.4,
+  bow: 0.2,
   fistpump: 0.4,
-  thumbsup: 0.51,
+  thumbsup: 0.53,
   walking: 0.4,
 };
 

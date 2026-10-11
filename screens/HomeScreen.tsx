@@ -66,8 +66,9 @@ export default function HomeScreen({ navigation }: Props) {
             {greeting && (
               <MascotGreeting
                 message={greeting.message}
-                // 銅像の頭の真上に向ける。ポーズによって頭の位置が違うので画像ごとの値を使い、最低でも少し左に寄せる
-                tailOffset={Math.min(-4, mascotHeadOffset(greeting.pose, statueHeight))}
+                // しっぽの先を銅像の頭の中心の真上に合わせる。吹き出しの幅は文言で変わるが、吹き出しは
+                // 画面中央(=銅像の画像の中心)に置かれるので、画像の中心から頭までのずれを基準にする
+                tailOffset={mascotHeadOffset(greeting.pose, statueHeight)}
               />
             )}
           </View>
