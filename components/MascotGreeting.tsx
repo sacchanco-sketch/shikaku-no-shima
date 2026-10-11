@@ -5,26 +5,29 @@ type Props = {
   message: string;
 };
 
-/** 銅像の頭上に置く吹き出し。メッセージの判定ロジックは lib/mascot.ts の useMascotGreeting */
+/**
+ * 銅像の頭上に置く吹き出し。下辺中央の小さな三角のしっぽが銅像を指す。
+ * メッセージの判定ロジックは lib/mascot.ts の useMascotGreeting
+ */
 export default function MascotGreeting({ message }: Props) {
   return (
     <View style={styles.bubble}>
       <Text style={styles.text}>{message}</Text>
+      <View style={styles.tail} />
     </View>
   );
 }
 
+const TAIL_SIZE = 12;
+
 const styles = StyleSheet.create({
   bubble: {
-    alignSelf: "flex-start",
-    maxWidth: "88%",
+    alignSelf: "center",
+    maxWidth: "100%",
     backgroundColor: colors.white,
     borderWidth: 1.5,
     borderColor: colors.black,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    borderBottomRightRadius: 16,
-    borderBottomLeftRadius: 4,
+    borderRadius: 16,
     paddingHorizontal: 12,
     paddingVertical: 9,
   },
@@ -33,5 +36,20 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     lineHeight: 19,
     color: colors.black,
+    textAlign: "center",
+  },
+  // 45度回した正方形の右下の角だけ枠線を残して下向きの三角にする(白塗りで吹き出し枠線の継ぎ目を隠す)
+  tail: {
+    position: "absolute",
+    bottom: -TAIL_SIZE / 2 - 1,
+    left: "50%",
+    marginLeft: -TAIL_SIZE / 2,
+    width: TAIL_SIZE,
+    height: TAIL_SIZE,
+    backgroundColor: colors.white,
+    borderRightWidth: 1.5,
+    borderBottomWidth: 1.5,
+    borderColor: colors.black,
+    transform: [{ rotate: "45deg" }],
   },
 });

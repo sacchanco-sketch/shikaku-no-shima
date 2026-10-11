@@ -8,19 +8,24 @@ import { loadProgress, summarize, type OverallStats } from "../lib/progress";
 import { useMascotGreeting } from "../lib/mascot";
 import Mascot from "../components/Mascot";
 import MascotGreeting from "../components/MascotGreeting";
+import FieldCell from "../components/FieldCell";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Home">;
 
-// 銅像は最大230px・円は最大220px。ヒーロー領域の高さが足りない低い端末では、
-// BUBBLE_ZONE(吹き出し用)を確保できる範囲まで縮める。
-const BUBBLE_ZONE = 68; // 吹き出し(最大2行)のために銅像の上に空けておく高さ
+// 銅像は最大230px・円は最大220px。画面が低い端末では、下の要素(数字・分野セル)を確保した残りに収まるよう縮める。
+const BUBBLE_AREA = 58; // 吹き出し(最大2行)の置き場の高さ。吹き出しは下揃えで、銅像の頭の BUBBLE_GAP 上に来る
+const BUBBLE_GAP = 12;
 const STATUE_MAX = 230;
 const STATUE_MIN = 150;
 const CIRCLE_MAX = 220;
+const GROUP_TO_STATS = 36; // 銅像グループと数字の間
+// 銅像そのもの以外の、銅像グループ〜分野セルの固定の高さ(吹き出し置き場+隙間+銅像下端のオフセット
+// +数字との間隔+数字ブロック+余白の最小値+見出し+セル)。bodyの高さからこれを引いた残りが銅像に使える高さ。
+const FIXED_BELOW_STATUE = BUBBLE_AREA + BUBBLE_GAP + 6 + GROUP_TO_STATS + 82 + 14 + 29 + 91;
 
 export default function HomeScreen({ navigation }: Props) {
   const [stats, setStats] = useState<OverallStats | null>(null);
-  const [heroHeight, setHeroHeight] = useState(335);
+  const [bodyHeight, setBodyHeight] = useState(480);
   const greeting = useMascotGreeting();
 
   // 演習から戻ってくるたびに最新の記録を読み直す
@@ -36,12 +41,14 @@ export default function HomeScreen({ navigation }: Props) {
     }, [])
   );
 
-  const onHeroLayout = (e: LayoutChangeEvent) => {
-    setHeroHeight(Math.round(e.nativeEvent.layout.height));
+  const onBodyLayout = (e: LayoutChangeEvent) => {
+    setBodyHeight(Math.round(e.nativeEvent.layout.height));
   };
 
-  // ヒーロー領域の高さに合わせて銅像と円の大きさを決める(吹き出しの分は必ず上に空ける)
-  const statueHeight = Math.max(STATUE_MIN, Math.min(STATUE_MAX, heroHeight - BUBBLE_ZONE - 6));
+  const statueHeight = Math.max(
+    STATUE_MIN,
+    Math.min(STATUE_MAX, bodyHeight - FIXED_BELOW_STATUE)
+  );
   const circleSize = Math.min(CIRCLE_MAX, Math.round(statueHeight * 0.96));
 
   return (
@@ -52,48 +59,47 @@ export default function HomeScreen({ navigation }: Props) {
         </View>
       </View>
 
-      <View style={styles.hero} onLayout={onHeroLayout}>
-        {/* 吹き出し+銅像+円を1つのまとまりにして、余った縦スペースの中央に置く(両者の間が空きすぎない) */}
-        <View style={{ height: BUBBLE_ZONE + statueHeight + 6 }}>
-          <View
-            style={[
-              styles.circle,
-              { width: circleSize, height: circleSize, borderRadius: circleSize / 2 },
-            ]}
-          />
-          {greeting && <Mascot pose={greeting.pose} height={statueHeight} style={styles.statue} />}
-          <View style={styles.bubbleWrap}>
+      <View style={styles.body} onLayout={onBodyLayout}>
+        {/* 吹き出し+銅像+円を1つのまとまりにして、画面の上寄りに置く */}
+        <View style={styles.group}>
+          <View style={styles.bubbleArea}>
             {greeting && <MascotGreeting message={greeting.message} />}
           </View>
+          <View style={{ height: statueHeight + 6, marginTop: BUBBLE_GAP }}>
+            <View
+              style={[
+                styles.circle,
+                { width: circleSize, height: circleSize, borderRadius: circleSize / 2 },
+              ]}
+            />
+            {greeting && (
+              <Mascot pose={greeting.pose} height={statueHeight} style={styles.statue} />
+            )}
+          </View>
         </View>
-      </View>
 
-      <View style={styles.statsRow}>
-        <BigStat value={stats?.streakDays ?? 0} unit="日" caption="連続学習" />
-        <BigStat value={stats?.last7DaysCount ?? 0} unit="問" caption="直近7日" />
-      </View>
+        <View style={styles.statsRow}>
+          <BigStat value={stats?.streakDays ?? 0} unit="日" caption="連続学習" />
+          <BigStat value={stats?.last7DaysCount ?? 0} unit="問" caption="直近7日" />
+        </View>
 
-      <Text style={styles.sectionLabel}>分野を選んで演習</Text>
-      <View style={styles.fieldsRow}>
-        {(stats?.byField ?? EMPTY_FIELDS).map((f) => {
-          const attempted = f.total > 0;
-          const percent = Math.round(f.accuracy * 100);
-          return (
-            <TouchableOpacity
+        {/* 余った高さは、数字の下・分野セルの下に均等に配分する */}
+        <View style={styles.flexSpacerTop} />
+
+        <Text style={styles.sectionLabel}>分野を選んで演習</Text>
+        <View style={styles.fieldsRow}>
+          {(stats?.byField ?? EMPTY_FIELDS).map((f) => (
+            <FieldCell
               key={f.field}
-              style={styles.fieldCell}
+              field={f.field}
+              attempted={f.total > 0}
+              accuracy={f.accuracy}
               onPress={() => navigation.navigate("Quiz", { field: f.field })}
-            >
-              <Text style={styles.fieldName}>{f.field}</Text>
-              <Text style={[styles.fieldPercent, !attempted && styles.fieldPercentMuted]}>
-                {attempted ? `${percent}%` : "–"}
-              </Text>
-              <View style={styles.barTrack}>
-                <View style={[styles.barFill, { width: `${attempted ? percent : 0}%` }]} />
-              </View>
-            </TouchableOpacity>
-          );
-        })}
+            />
+          ))}
+        </View>
+
+        <View style={styles.flexSpacerBottom} />
       </View>
 
       <View style={styles.ctaWrap}>
@@ -153,11 +159,17 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "700",
   },
-  // 残りの縦スペースをすべて使う(スクロールを出さないため)。吹き出しは上、銅像と円は下寄せ
-  hero: {
+  body: {
     flex: 1,
-    marginTop: 6,
-    justifyContent: "center",
+    marginTop: 8,
+  },
+  group: {
+    marginBottom: GROUP_TO_STATS,
+  },
+  bubbleArea: {
+    height: BUBBLE_AREA,
+    justifyContent: "flex-end",
+    paddingHorizontal: 22,
   },
   circle: {
     position: "absolute",
@@ -170,17 +182,17 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     bottom: 6,
   },
-  bubbleWrap: {
-    position: "absolute",
-    top: 4,
-    left: 22,
-    right: 22,
+  flexSpacerTop: {
+    flex: 1,
+    minHeight: 14,
+  },
+  flexSpacerBottom: {
+    flex: 1,
   },
   statsRow: {
     flexDirection: "row",
     gap: 12,
     paddingHorizontal: 22,
-    paddingTop: 6,
   },
   stat: {
     flex: 1,
@@ -220,52 +232,20 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   sectionLabel: {
-    fontSize: 11,
-    color: colors.textSecondary,
+    fontSize: 15,
+    fontWeight: "700",
+    color: colors.black,
     paddingHorizontal: 22,
-    marginTop: 22,
-    marginBottom: 8,
+    marginBottom: 10,
   },
   fieldsRow: {
     flexDirection: "row",
     gap: 8,
     paddingHorizontal: 22,
   },
-  fieldCell: {
-    flex: 1,
-    borderWidth: 1.5,
-    borderColor: colors.lightBorder,
-    borderRadius: 16,
-    padding: 10,
-  },
-  fieldName: {
-    fontSize: 11,
-    color: colors.textSecondary,
-  },
-  fieldPercent: {
-    fontSize: 20,
-    fontWeight: "800",
-    color: colors.black,
-    marginTop: 2,
-    marginBottom: 6,
-  },
-  fieldPercentMuted: {
-    color: colors.textSecondary,
-  },
-  barTrack: {
-    height: 5,
-    borderRadius: 9,
-    backgroundColor: colors.lightBorder,
-    overflow: "hidden",
-  },
-  barFill: {
-    height: "100%",
-    borderRadius: 9,
-    backgroundColor: colors.black,
-  },
   ctaWrap: {
     paddingHorizontal: 18,
-    paddingTop: 22,
+    paddingTop: 32,
     paddingBottom: 22,
   },
   cta: {
