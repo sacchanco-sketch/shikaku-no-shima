@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   SafeAreaView,
@@ -16,11 +16,13 @@ import { colors, borderRadius } from "../theme";
 import type { OptionKey, Question } from "../types/question";
 import type { RootStackParamList, SetAnswerRecord } from "../navigation/types";
 import AnswerOption, { type OptionStatus } from "../components/AnswerOption";
+import Mascot from "../components/Mascot";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Quiz">;
 
 const OPTION_KEYS: OptionKey[] = ["1", "2", "3", "4", "5"];
 const SET_SIZE = 10;
+const CELEBRATE_MS = 1500; // 正解時に fistpump を出しておく時間
 
 // このアプリでは Database 型を生成していないため、フィルタの有無で分岐する
 // クエリビルダーの型は any として扱う(内部ヘルパーに閉じているため実用上の影響はない)。
@@ -51,6 +53,15 @@ export default function QuizScreen({ navigation, route }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<OptionKey | null>(null);
   const [setRecords, setSetRecords] = useState<SetAnswerRecord[]>([]);
+  // 画面の隅のマスコット。普段は reading、正解した瞬間だけ短く fistpump に切り替える
+  const [celebrating, setCelebrating] = useState(false);
+  const celebrateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (celebrateTimer.current) clearTimeout(celebrateTimer.current);
+    };
+  }, []);
 
   const question = questions[currentIndex] ?? null;
 
@@ -99,6 +110,9 @@ export default function QuizScreen({ navigation, route }: Props) {
     });
 
     if (correct) {
+      setCelebrating(true);
+      if (celebrateTimer.current) clearTimeout(celebrateTimer.current);
+      celebrateTimer.current = setTimeout(() => setCelebrating(false), CELEBRATE_MS);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     } else {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
@@ -106,6 +120,7 @@ export default function QuizScreen({ navigation, route }: Props) {
   };
 
   const handleNext = () => {
+    setCelebrating(false);
     if (!isLastQuestion) {
       setCurrentIndex((i) => i + 1);
       setSelected(null);
@@ -124,10 +139,10 @@ export default function QuizScreen({ navigation, route }: Props) {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.backLink}>← ホームへ</Text>
-        </TouchableOpacity>
-        <View style={styles.headerTitleRow}>
+        <View style={styles.headerText}>
+          <TouchableOpacity onPress={() => navigation.goBack()}>
+            <Text style={styles.backLink}>← ホームへ</Text>
+          </TouchableOpacity>
           <Text style={styles.headerTitle}>
             {isReviewMode ? "苦手問題の復習" : (field ?? "今日の問題")}
           </Text>
@@ -137,12 +152,14 @@ export default function QuizScreen({ navigation, route }: Props) {
             </Text>
           )}
         </View>
+        {/* 画面の隅に小さく置くマスコット(問題文の上には重ならない) */}
+        <Mascot pose={celebrating ? "fistpump" : "reading"} height={84} />
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
         {loading && (
           <View style={styles.centered}>
-            <ActivityIndicator size="large" color={colors.vividBlue} />
+            <ActivityIndicator size="large" color={colors.black} />
           </View>
         )}
 
@@ -209,34 +226,41 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
   },
   header: {
-    backgroundColor: colors.vividBlue,
-    paddingTop: 24,
-    paddingBottom: 20,
+    backgroundColor: colors.white,
+    paddingTop: 16,
+    paddingBottom: 8,
     paddingHorizontal: 20,
-    borderBottomLeftRadius: borderRadius,
-    borderBottomRightRadius: borderRadius,
+    flexDirection: "row",
+    alignItems: "flex-end",
+    justifyContent: "space-between",
+    borderBottomWidth: 1.5,
+    borderBottomColor: colors.lightBorder,
+  },
+  headerText: {
+    flex: 1,
+    paddingBottom: 8,
   },
   backLink: {
-    color: colors.white,
+    color: colors.textSecondary,
     fontSize: 14,
     marginBottom: 8,
-    opacity: 0.9,
-  },
-  headerTitleRow: {
-    flexDirection: "row",
-    alignItems: "baseline",
-    justifyContent: "space-between",
   },
   headerTitle: {
-    color: colors.white,
+    color: colors.black,
     fontSize: 22,
-    fontWeight: "700",
+    fontWeight: "800",
   },
   headerProgress: {
-    color: colors.white,
-    fontSize: 14,
-    fontWeight: "700",
-    opacity: 0.9,
+    alignSelf: "flex-start",
+    marginTop: 6,
+    backgroundColor: colors.neonLime,
+    color: colors.black,
+    fontSize: 12,
+    fontWeight: "800",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 99,
+    overflow: "hidden",
   },
   content: {
     padding: 20,
@@ -272,7 +296,9 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   resultCard: {
-    backgroundColor: colors.lavender,
+    backgroundColor: colors.white,
+    borderWidth: 1.5,
+    borderColor: colors.lightBorder,
     borderRadius: borderRadius,
     padding: 20,
     gap: 10,

@@ -83,7 +83,7 @@ export default function ProgressScreen({ navigation }: Props) {
               </View>
             </View>
 
-            <View style={[styles.card, styles.lavenderCard]}>
+            <View style={[styles.card, styles.warnCard]}>
               <Text style={styles.cardLabel}>苦手問題</Text>
               <Text style={styles.cardDescription}>
                 {hasIncorrect
@@ -113,21 +113,18 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
   },
   header: {
-    backgroundColor: colors.vividBlue,
+    backgroundColor: colors.white,
     paddingTop: 24,
-    paddingBottom: 20,
+    paddingBottom: 16,
     paddingHorizontal: 20,
-    borderBottomLeftRadius: borderRadius,
-    borderBottomRightRadius: borderRadius,
   },
   backLink: {
-    color: colors.white,
+    color: colors.textSecondary,
     fontSize: 14,
     marginBottom: 8,
-    opacity: 0.9,
   },
   headerTitle: {
-    color: colors.white,
+    color: colors.black,
     fontSize: 22,
     fontWeight: "700",
   },
@@ -148,8 +145,9 @@ const styles = StyleSheet.create({
   limeCard: {
     backgroundColor: colors.neonLime,
   },
-  lavenderCard: {
-    backgroundColor: colors.lavender,
+  warnCard: {
+    borderWidth: 1.5,
+    borderColor: colors.black,
   },
   outlineCard: {
     borderWidth: 1,
@@ -203,7 +201,7 @@ const styles = StyleSheet.create({
   },
   barFill: {
     height: "100%",
-    backgroundColor: colors.vividBlue,
+    backgroundColor: colors.black,
     borderRadius: 4,
   },
   fieldCount: {

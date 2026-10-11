@@ -4,17 +4,11 @@ import { colors, borderRadius } from "../theme";
 import type { RootStackParamList } from "../navigation/types";
 import type { QuestionField } from "../types/question";
 import ProgressRing from "../components/ProgressRing";
+import Mascot from "../components/Mascot";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Result">;
 
 const ALL_FIELDS: QuestionField[] = ["関係法令", "労働衛生", "労働生理"];
-
-// 分野選択カード・HomeProgressSummaryと同じ色分けに合わせている
-const FIELD_COLORS: Record<QuestionField, string> = {
-  関係法令: colors.lavender,
-  労働衛生: colors.neonLime,
-  労働生理: colors.vividBlue,
-};
 
 function resultMessage(accuracy: number): string {
   if (accuracy === 1) return "パーフェクト！";
@@ -49,11 +43,15 @@ export default function ResultScreen({ navigation, route }: Props) {
 
       <ScrollView contentContainerStyle={styles.content}>
         <View style={[styles.card, styles.limeCard]}>
-          <Text style={styles.cardLabel}>正答率</Text>
-          <Text style={styles.bigNumber}>{Math.round(accuracy * 100)}%</Text>
-          <Text style={styles.cardDescription}>
-            {total}問中 {correctCount}問正解 ・ {resultMessage(accuracy)}
-          </Text>
+          <View style={styles.limeCardText}>
+            <Text style={styles.cardLabel}>正答率</Text>
+            <Text style={styles.bigNumber}>{Math.round(accuracy * 100)}%</Text>
+            <Text style={styles.cardDescription}>
+              {total}問中 {correctCount}問正解 ・ {resultMessage(accuracy)}
+            </Text>
+          </View>
+          {/* 10問完了のごほうび: 拳を上げるポーズ */}
+          <Mascot pose="fistpump" height={120} />
         </View>
 
         <View>
@@ -64,7 +62,7 @@ export default function ResultScreen({ navigation, route }: Props) {
                 key={f.field}
                 size={64}
                 progress={f.accuracy}
-                color={FIELD_COLORS[f.field]}
+                color={colors.black}
                 label={f.field}
                 attempted={f.total > 0}
               />
@@ -94,15 +92,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
   },
   header: {
-    backgroundColor: colors.vividBlue,
+    backgroundColor: colors.white,
     paddingTop: 24,
-    paddingBottom: 20,
+    paddingBottom: 16,
     paddingHorizontal: 20,
-    borderBottomLeftRadius: borderRadius,
-    borderBottomRightRadius: borderRadius,
   },
   headerTitle: {
-    color: colors.white,
+    color: colors.black,
     fontSize: 22,
     fontWeight: "700",
   },
@@ -123,6 +119,15 @@ const styles = StyleSheet.create({
   },
   limeCard: {
     backgroundColor: colors.neonLime,
+    flexDirection: "row",
+    alignItems: "flex-end",
+    justifyContent: "space-between",
+    overflow: "hidden",
+    paddingBottom: 0,
+  },
+  limeCardText: {
+    flex: 1,
+    paddingBottom: 20,
   },
   cardLabel: {
     fontSize: 12,
@@ -155,7 +160,7 @@ const styles = StyleSheet.create({
   },
   secondaryButton: {
     flex: 1,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: colors.lightBorder,
     borderRadius: borderRadius,
     paddingVertical: 14,
