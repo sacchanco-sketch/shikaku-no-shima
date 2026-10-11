@@ -11,12 +11,12 @@ import MascotGreeting from "../components/MascotGreeting";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Home">;
 
-// モック(360x740)の寸法が基準(円230px・銅像240px)。ヒーロー領域は残りの縦スペースを使い切るので、
-// 背の高い端末では最大1.3倍まで拡大し、低い端末では BUBBLE_ZONE を確保できる範囲まで縮める。
+// 銅像は最大230px・円は最大220px。ヒーロー領域の高さが足りない低い端末では、
+// BUBBLE_ZONE(吹き出し用)を確保できる範囲まで縮める。
 const BUBBLE_ZONE = 68; // 吹き出し(最大2行)のために銅像の上に空けておく高さ
-const STATUE_MAX = 312;
+const STATUE_MAX = 230;
 const STATUE_MIN = 150;
-const CIRCLE_MAX = 300;
+const CIRCLE_MAX = 220;
 
 export default function HomeScreen({ navigation }: Props) {
   const [stats, setStats] = useState<OverallStats | null>(null);
@@ -53,15 +53,18 @@ export default function HomeScreen({ navigation }: Props) {
       </View>
 
       <View style={styles.hero} onLayout={onHeroLayout}>
-        <View
-          style={[
-            styles.circle,
-            { width: circleSize, height: circleSize, borderRadius: circleSize / 2 },
-          ]}
-        />
-        {greeting && <Mascot pose={greeting.pose} height={statueHeight} style={styles.statue} />}
-        <View style={styles.bubbleWrap}>
-          {greeting && <MascotGreeting message={greeting.message} />}
+        {/* 吹き出し+銅像+円を1つのまとまりにして、余った縦スペースの中央に置く(両者の間が空きすぎない) */}
+        <View style={{ height: BUBBLE_ZONE + statueHeight + 6 }}>
+          <View
+            style={[
+              styles.circle,
+              { width: circleSize, height: circleSize, borderRadius: circleSize / 2 },
+            ]}
+          />
+          {greeting && <Mascot pose={greeting.pose} height={statueHeight} style={styles.statue} />}
+          <View style={styles.bubbleWrap}>
+            {greeting && <MascotGreeting message={greeting.message} />}
+          </View>
         </View>
       </View>
 
@@ -70,6 +73,7 @@ export default function HomeScreen({ navigation }: Props) {
         <BigStat value={stats?.last7DaysCount ?? 0} unit="問" caption="直近7日" />
       </View>
 
+      <Text style={styles.sectionLabel}>分野を選んで演習</Text>
       <View style={styles.fieldsRow}>
         {(stats?.byField ?? EMPTY_FIELDS).map((f) => {
           const attempted = f.total > 0;
@@ -153,6 +157,7 @@ const styles = StyleSheet.create({
   hero: {
     flex: 1,
     marginTop: 6,
+    justifyContent: "center",
   },
   circle: {
     position: "absolute",
@@ -214,11 +219,17 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.textSecondary,
   },
+  sectionLabel: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    paddingHorizontal: 22,
+    marginTop: 22,
+    marginBottom: 8,
+  },
   fieldsRow: {
     flexDirection: "row",
     gap: 8,
     paddingHorizontal: 22,
-    paddingTop: 18,
   },
   fieldCell: {
     flex: 1,
@@ -254,7 +265,7 @@ const styles = StyleSheet.create({
   },
   ctaWrap: {
     paddingHorizontal: 18,
-    paddingTop: 16,
+    paddingTop: 22,
     paddingBottom: 22,
   },
   cta: {
