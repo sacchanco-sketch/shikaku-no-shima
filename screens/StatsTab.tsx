@@ -14,7 +14,7 @@ import {
 import ProgressRing from "../components/ProgressRing";
 import DailyBarChart from "../components/DailyBarChart";
 import { LockIcon } from "../components/Icons";
-import { setPremiumForDev, useEntitlement } from "../lib/entitlements";
+import { setPremiumForDev, useDevOverride, useEntitlement } from "../lib/entitlements";
 
 type Props = {
   navigation: NativeStackNavigationProp<RootStackParamList, "Home">;
@@ -24,6 +24,7 @@ export default function StatsTab({ navigation }: Props) {
   const [stats, setStats] = useState<OverallStats | null>(null);
   const [daily, setDaily] = useState<DailyCount[]>([]);
   const { isPremium } = useEntitlement();
+  const devOverride = useDevOverride();
 
   // 演習から戻ってくるたびに最新の記録を読み直す
   useFocusEffect(
@@ -107,12 +108,13 @@ export default function StatsTab({ navigation }: Props) {
         {/* 開発用: 本番ビルドには出さない */}
         {__DEV__ && (
           <TouchableOpacity
-            onPress={() => setPremiumForDev(!isPremium)}
+            // 本物の購入状態に従う → 有料に固定 → 無料に固定 → 本物に従う … と切り替える
+            onPress={() => setPremiumForDev(devOverride === null ? true : devOverride ? false : null)}
             style={styles.devToggle}
             accessibilityRole="button"
           >
             <Text style={styles.devToggleText}>
-              開発用: {isPremium ? "有料" : "無料"}(タップで{isPremium ? "無料" : "有料"}に切り替え)
+              開発用: {devOverride === null ? `本物の購入状態に従う(現在: ${isPremium ? "有料" : "無料"})` : devOverride ? "有料に固定" : "無料に固定"} ・ タップで切り替え
             </Text>
           </TouchableOpacity>
         )}

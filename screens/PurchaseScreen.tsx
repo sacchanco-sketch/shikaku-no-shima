@@ -1,9 +1,15 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { colors } from "../theme";
 import type { RootStackParamList } from "../navigation/types";
-import { PRICE_LABEL, purchase, restore, type PurchaseResult } from "../lib/entitlements";
+import {
+  purchase,
+  refreshPrice,
+  restore,
+  usePriceLabel,
+  type PurchaseResult,
+} from "../lib/entitlements";
 import { EXAMS } from "../lib/exams";
 import { FREE_EXAM_KEYS } from "../lib/questionAccess";
 import Mascot from "../components/Mascot";
@@ -29,6 +35,11 @@ const BENEFITS = [
 export default function PurchaseScreen({ navigation }: Props) {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  // 価格は RevenueCat の Offering から取得する(取れるまでは「¥980」)。画面を開くたびに、未取得なら再取得する
+  const priceLabel = usePriceLabel();
+  useEffect(() => {
+    refreshPrice();
+  }, []);
 
   const run = async (action: () => Promise<PurchaseResult>) => {
     if (busy) return;
@@ -99,7 +110,7 @@ export default function PurchaseScreen({ navigation }: Props) {
           disabled={busy}
           accessibilityRole="button"
         >
-          <Text style={styles.buyButtonText}>{PRICE_LABEL}で全問題を使う</Text>
+          <Text style={styles.buyButtonText}>{priceLabel}で全問題を使う</Text>
         </TouchableOpacity>
 
         {message && <Text style={styles.message}>{message}</Text>}
