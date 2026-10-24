@@ -33,6 +33,12 @@
           "backgroundColor": "#FFFFFF"
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "09a4666b-1b36-44d3-b34f-6a410603e733"
+      }
+    },
+    "owner": "sachikok"
   }
 }
