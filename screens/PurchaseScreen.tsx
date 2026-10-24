@@ -4,6 +4,8 @@ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { colors } from "../theme";
 import type { RootStackParamList } from "../navigation/types";
 import {
+  SHOW_PURCHASE_DEBUG,
+  loadPurchaseDebugInfo,
   purchase,
   refreshPrice,
   restore,
@@ -35,20 +37,32 @@ const BENEFITS = [
 export default function PurchaseScreen({ navigation }: Props) {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  // テスト中だけの診断表示(lib/entitlements.ts の SHOW_PURCHASE_DEBUG で消せる)
+  const [detail, setDetail] = useState<string | null>(null);
+  const [debugInfo, setDebugInfo] = useState<string | null>(null);
+  const reloadDebugInfo = () => {
+    if (SHOW_PURCHASE_DEBUG) loadPurchaseDebugInfo().then(setDebugInfo);
+  };
   // 価格は RevenueCat の Offering から取得する(取れるまでは「¥980」)。画面を開くたびに、未取得なら再取得する
   const priceLabel = usePriceLabel();
   useEffect(() => {
     refreshPrice();
+    reloadDebugInfo();
   }, []);
 
   const run = async (action: () => Promise<PurchaseResult>) => {
     if (busy) return;
     setBusy(true);
     setMessage(null);
+    setDetail(null);
     try {
       const result = await action();
       if (result.status === "success") navigation.goBack();
-      else setMessage(result.message ?? null);
+      else {
+        setMessage(result.message ?? null);
+        setDetail(result.detail ?? null);
+        reloadDebugInfo();
+      }
     } finally {
       setBusy(false);
     }
@@ -100,6 +114,12 @@ export default function PurchaseScreen({ navigation }: Props) {
             </Text>
           </View>
         </View>
+
+        {SHOW_PURCHASE_DEBUG && debugInfo && (
+          <Text style={[styles.debugText, styles.debugInfo]} selectable>
+            {debugInfo}
+          </Text>
+        )}
       </ScrollView>
 
       {/* 購入ボタンと復元は画面の下に固定する */}
@@ -114,6 +134,11 @@ export default function PurchaseScreen({ navigation }: Props) {
         </TouchableOpacity>
 
         {message && <Text style={styles.message}>{message}</Text>}
+        {SHOW_PURCHASE_DEBUG && detail && (
+          <Text style={styles.debugText} selectable>
+            {detail}
+          </Text>
+        )}
 
         <TouchableOpacity onPress={() => run(restore)} disabled={busy} style={styles.restoreWrap}>
           <Text style={styles.restoreText}>購入を復元</Text>
@@ -251,6 +276,15 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.textSecondary,
     textAlign: "center",
+  },
+  debugText: {
+    marginTop: 6,
+    fontSize: 10,
+    lineHeight: 14,
+    color: colors.textSecondary,
+  },
+  debugInfo: {
+    marginTop: 16,
   },
   restoreWrap: {
     marginTop: 6,

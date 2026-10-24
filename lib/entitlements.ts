@@ -22,6 +22,14 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSyncExternalStore } from "react";
 import type { CustomerInfo, PurchasesError, PurchasesPackage } from "react-native-purchases";
 
+/**
+ * ★ テスト中だけの診断表示のスイッチ ★
+ * true の間、購入・復元・商品取得が失敗したときの詳細(RevenueCat のエラーコードなど)と、購入画面の
+ * 診断情報(appUserID・取得できた商品)を表示する。審査に出す前に、false にする(または
+ * 関連のコードごと消す)。false にすると、詳細の文字列も作らず、表示もされない。
+ */
+export const SHOW_PURCHASE_DEBUG = true;
+
 /** RevenueCat の権利ID */
 const ENTITLEMENT_ID = "premium";
 /** Lifetime パッケージの識別子(offerings.current.lifetime と同じもの) */
@@ -48,6 +56,8 @@ export type PurchaseResult = {
   status: "success" | "cancelled" | "unavailable" | "nothing-to-restore" | "error";
   /** 画面にそのまま出せる説明(成功・ユーザーが自分でキャンセルしたときは無し) */
   message?: string;
+  /** 原因調査用の詳細(SHOW_PURCHASE_DEBUG が true のときだけ入る) */
+  detail?: string;
 };
 
 const MESSAGES = {
@@ -126,6 +136,42 @@ function lifetimeOf(offerings: Awaited<ReturnType<PurchasesModule["getOfferings"
     current?.availablePackages.find((p) => p.identifier === LIFETIME_PACKAGE_ID) ??
     null
   );
+}
+
+type Offerings = Awaited<ReturnType<PurchasesModule["getOfferings"]>>;
+
+/** 商品が取れない理由を区別する: current が null / packages が空 / lifetime が無い */
+function diagnoseOfferings(offerings: Offerings): { pkg: PurchasesPackage | null; problem: string | null } {
+  const allIds = Object.keys(offerings.all ?? {});
+  const current = offerings.current;
+  if (!current) {
+    return {
+      pkg: null,
+      problem: `current の Offering が null(Offering 一覧: ${allIds.length ? allIds.join(", ") : "なし"})`,
+    };
+  }
+  if (current.availablePackages.length === 0) {
+    return { pkg: null, problem: `current(${current.identifier})の packages が空` };
+  }
+  const pkg = lifetimeOf(offerings);
+  if (!pkg) {
+    const ids = current.availablePackages.map((p) => p.identifier).join(", ");
+    return { pkg: null, problem: `current(${current.identifier})に lifetime パッケージが無い(packages: ${ids})` };
+  }
+  return { pkg, problem: null };
+}
+
+/** RevenueCat のエラーの詳細をまとめる(診断表示用) */
+function formatErrorDetail(error: unknown, where: string): string {
+  const e = error as Partial<PurchasesError> | undefined;
+  const readable = e?.readableErrorCode ?? e?.userInfo?.readableErrorCode;
+  return [
+    `[${where}]`,
+    `code=${e?.code ?? "-"}`,
+    `readableErrorCode=${readable ?? "-"}`,
+    `underlyingErrorMessage=${e?.underlyingErrorMessage || "-"}`,
+    `message=${e?.message ?? String(error)}`,
+  ].join("\n");
 }
 
 let priceRequest: Promise<void> | null = null;
@@ -253,20 +299,40 @@ export async function purchase(): Promise<PurchaseResult> {
     return { status: "unavailable", message: MESSAGES.notReady };
   }
 
+  let step = "getOfferings";
   try {
     const offerings = await Purchases.getOfferings();
-    const lifetime = lifetimeOf(offerings);
-    if (!lifetime) return { status: "error", message: MESSAGES.noProduct };
+    const { pkg: lifetime, problem } = diagnoseOfferings(offerings);
+    if (!lifetime) {
+      return {
+        status: "error",
+        message: MESSAGES.noProduct,
+        detail: SHOW_PURCHASE_DEBUG ? `[getOfferings]\n${problem}` : undefined,
+      };
+    }
 
+    step = "purchasePackage";
     const { customerInfo } = await Purchases.purchasePackage(lifetime);
     applyCustomerInfo(customerInfo);
     return hasPremium(customerInfo)
       ? { status: "success" }
-      : { status: "error", message: MESSAGES.notReflected };
+      : {
+          status: "error",
+          message: MESSAGES.notReflected,
+          detail: SHOW_PURCHASE_DEBUG
+            ? `[purchasePackage]\n購入は完了したが、entitlements.active に "${ENTITLEMENT_ID}" が無い(active: ${
+                Object.keys(customerInfo.entitlements.active).join(", ") || "なし"
+              })`
+            : undefined,
+        };
   } catch (error) {
     // ユーザーが自分でキャンセルしたときは、エラーとして表示しない
     if ((error as PurchasesError | undefined)?.userCancelled) return { status: "cancelled" };
-    return { status: "error", message: describeError(error, MESSAGES.purchaseFailed, Purchases) };
+    return {
+      status: "error",
+      message: describeError(error, MESSAGES.purchaseFailed, Purchases),
+      detail: SHOW_PURCHASE_DEBUG ? formatErrorDetail(error, step) : undefined,
+    };
   }
 }
 
@@ -290,8 +356,42 @@ export async function restore(): Promise<PurchaseResult> {
       : { status: "nothing-to-restore", message: MESSAGES.nothingToRestore };
   } catch (error) {
     if ((error as PurchasesError | undefined)?.userCancelled) return { status: "cancelled" };
-    return { status: "error", message: describeError(error, MESSAGES.restoreFailed, Purchases) };
+    return {
+      status: "error",
+      message: describeError(error, MESSAGES.restoreFailed, Purchases),
+      detail: SHOW_PURCHASE_DEBUG ? formatErrorDetail(error, "restorePurchases") : undefined,
+    };
   }
+}
+
+/**
+ * 購入画面に出す診断情報(テスト用)。appUserID、current の Offering、取得できた商品(identifier と priceString)。
+ * 商品が取れないときは、current が null か・packages が空か・lifetime が無いのかを区別して書く。
+ */
+export async function loadPurchaseDebugInfo(): Promise<string> {
+  const Purchases = getPurchases();
+  if (!Purchases) {
+    return "課金は無効です(Expo Go / Web / SDKキー未設定のいずれか)";
+  }
+  const lines: string[] = [];
+  try {
+    lines.push(`appUserID: ${await Purchases.getAppUserID()}`);
+  } catch (error) {
+    lines.push(formatErrorDetail(error, "getAppUserID"));
+  }
+  try {
+    const offerings = await Purchases.getOfferings();
+    const { problem } = diagnoseOfferings(offerings);
+    lines.push(`current: ${offerings.current?.identifier ?? "null"}`);
+    const packages = offerings.current?.availablePackages ?? [];
+    for (const p of packages) {
+      lines.push(`商品: ${p.product.identifier}(${p.identifier}) ${p.product.priceString}`);
+    }
+    if (problem) lines.push(`問題: ${problem}`);
+  } catch (error) {
+    lines.push(formatErrorDetail(error, "getOfferings"));
+  }
+  return lines.join("\n");
 }
 
 // --- 開発用の上書き(__DEV__ のみ) ----------------------------------------------------------
