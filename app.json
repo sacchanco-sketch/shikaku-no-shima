@@ -7,9 +7,11 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.sacchanco.kinjirodrill"
     },
     "android": {
+      "package": "com.sacchanco.kinjirodrill",
       "adaptiveIcon": {
         "backgroundColor": "#D4F238",
         "foregroundImage": "./assets/adaptive-icon.png"
