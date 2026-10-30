@@ -24,11 +24,11 @@ import type { CustomerInfo, PurchasesError, PurchasesPackage } from "react-nativ
 
 /**
  * ★ テスト中だけの診断表示のスイッチ ★
- * true の間、購入・復元・商品取得が失敗したときの詳細(RevenueCat のエラーコードなど)と、購入画面の
- * 診断情報(appUserID・取得できた商品)を表示する。審査に出す前に、false にする(または
- * 関連のコードごと消す)。false にすると、詳細の文字列も作らず、表示もされない。
+ * true にすると、購入・復元・商品取得が失敗したときの詳細(RevenueCat のエラーコードなど)と、購入画面の
+ * 診断情報(appUserID・取得できた商品)を表示する。製品版・審査に出すビルドでは false にしておく。
+ * false の間は、詳細の文字列を作らず、診断情報も取得せず、画面にも何も出さない。
  */
-export const SHOW_PURCHASE_DEBUG = true;
+export const SHOW_PURCHASE_DEBUG: boolean = false;
 
 /** RevenueCat の権利ID */
 const ENTITLEMENT_ID = "premium";
@@ -142,21 +142,30 @@ type Offerings = Awaited<ReturnType<PurchasesModule["getOfferings"]>>;
 
 /** 商品が取れない理由を区別する: current が null / packages が空 / lifetime が無い */
 function diagnoseOfferings(offerings: Offerings): { pkg: PurchasesPackage | null; problem: string | null } {
-  const allIds = Object.keys(offerings.all ?? {});
+  // 説明の文字列は、診断表示がオンのときだけ作る
+  const explain = (text: () => string) => (SHOW_PURCHASE_DEBUG ? text() : null);
   const current = offerings.current;
   if (!current) {
     return {
       pkg: null,
-      problem: `current の Offering が null(Offering 一覧: ${allIds.length ? allIds.join(", ") : "なし"})`,
+      problem: explain(() => {
+        const allIds = Object.keys(offerings.all ?? {});
+        return `current の Offering が null(Offering 一覧: ${allIds.length ? allIds.join(", ") : "なし"})`;
+      }),
     };
   }
   if (current.availablePackages.length === 0) {
-    return { pkg: null, problem: `current(${current.identifier})の packages が空` };
+    return { pkg: null, problem: explain(() => `current(${current.identifier})の packages が空`) };
   }
   const pkg = lifetimeOf(offerings);
   if (!pkg) {
-    const ids = current.availablePackages.map((p) => p.identifier).join(", ");
-    return { pkg: null, problem: `current(${current.identifier})に lifetime パッケージが無い(packages: ${ids})` };
+    return {
+      pkg: null,
+      problem: explain(() => {
+        const ids = current.availablePackages.map((p) => p.identifier).join(", ");
+        return `current(${current.identifier})に lifetime パッケージが無い(packages: ${ids})`;
+      }),
+    };
   }
   return { pkg, problem: null };
 }
@@ -369,6 +378,7 @@ export async function restore(): Promise<PurchaseResult> {
  * 商品が取れないときは、current が null か・packages が空か・lifetime が無いのかを区別して書く。
  */
 export async function loadPurchaseDebugInfo(): Promise<string> {
+  if (!SHOW_PURCHASE_DEBUG) return ""; // 診断表示がオフなら、何も取得しない
   const Purchases = getPurchases();
   if (!Purchases) {
     return "課金は無効です(Expo Go / Web / SDKキー未設定のいずれか)";
