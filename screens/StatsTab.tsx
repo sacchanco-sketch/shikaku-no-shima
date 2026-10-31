@@ -1,16 +1,9 @@
-import { useCallback, useState } from "react";
+import { useMemo } from "react";
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { useFocusEffect } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { colors } from "../theme";
 import type { RootStackParamList } from "../navigation/types";
-import {
-  getDailyCounts,
-  loadProgress,
-  summarize,
-  type DailyCount,
-  type OverallStats,
-} from "../lib/progress";
+import { getDailyCounts, summarize, useProgress } from "../lib/progress";
 import ProgressRing from "../components/ProgressRing";
 import DailyBarChart from "../components/DailyBarChart";
 import { LockIcon } from "../components/Icons";
@@ -21,25 +14,12 @@ type Props = {
 };
 
 export default function StatsTab({ navigation }: Props) {
-  const [stats, setStats] = useState<OverallStats | null>(null);
-  const [daily, setDaily] = useState<DailyCount[]>([]);
+  // 記録は全画面で共有している(ホームと同じ値を見る)。解答した瞬間に更新される
+  const { data: progress, version } = useProgress();
+  const stats = useMemo(() => (progress ? summarize(progress) : null), [progress, version]);
+  const daily = useMemo(() => (progress ? getDailyCounts(progress.records, 7) : []), [progress, version]);
   const { isPremium } = useEntitlement();
   const devOverride = useDevOverride();
-
-  // 演習から戻ってくるたびに最新の記録を読み直す
-  useFocusEffect(
-    useCallback(() => {
-      let isActive = true;
-      loadProgress().then((progress) => {
-        if (!isActive) return;
-        setStats(summarize(progress));
-        setDaily(getDailyCounts(progress.records, 7));
-      });
-      return () => {
-        isActive = false;
-      };
-    }, [])
-  );
 
   const hasRecords = (stats?.total ?? 0) > 0;
   const incorrectIds = stats?.latestIncorrectQuestionIds ?? [];

@@ -1,10 +1,9 @@
-import { useCallback, useState } from "react";
+import { useMemo, useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View, type LayoutChangeEvent } from "react-native";
-import { useFocusEffect } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { colors } from "../theme";
 import type { RootStackParamList } from "../navigation/types";
-import { loadProgress, summarize, type OverallStats } from "../lib/progress";
+import { summarize, useProgress } from "../lib/progress";
 import { mascotHeadOffset, useMascotGreeting } from "../lib/mascot";
 import Mascot from "../components/Mascot";
 import MascotGreeting from "../components/MascotGreeting";
@@ -24,22 +23,11 @@ const GROUP_TO_STATS = 24; // 銅像グループと数字の間
 const FIXED_BELOW_STATUE = BUBBLE_AREA + BUBBLE_GAP + 6 + GROUP_TO_STATS + 82 + 8 + 32 + 93 + 4;
 
 export default function HomeScreen({ navigation }: Props) {
-  const [stats, setStats] = useState<OverallStats | null>(null);
+  // 記録は全画面で共有している。解答した瞬間に、ここの数字も更新される
+  const { data: progress, version } = useProgress();
+  const stats = useMemo(() => (progress ? summarize(progress) : null), [progress, version]);
   const [bodyHeight, setBodyHeight] = useState(480);
   const greeting = useMascotGreeting();
-
-  // 演習から戻ってくるたびに最新の記録を読み直す
-  useFocusEffect(
-    useCallback(() => {
-      let isActive = true;
-      loadProgress().then((progress) => {
-        if (isActive) setStats(summarize(progress));
-      });
-      return () => {
-        isActive = false;
-      };
-    }, [])
-  );
 
   const onBodyLayout = (e: LayoutChangeEvent) => {
     setBodyHeight(Math.round(e.nativeEvent.layout.height));

@@ -7,6 +7,8 @@
  * 将来的にSupabaseのユーザーテーブルに移行予定(ログイン機能の導入後、
  * 端末をまたいだ同期や複数端末での閲覧に対応するため)。
  */
+import { useEffect, useSyncExternalStore } from "react";
+import { AppState } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { QuestionField } from "../types/question";
 
@@ -25,7 +27,31 @@ export interface ProgressData {
 
 const EMPTY_PROGRESS: ProgressData = { records: [] };
 
-export async function loadProgress(): Promise<ProgressData> {
+// --- 記録の置き場(アプリ全体で1つ) ------------------------------------------------------------
+// 画面ごとにストレージを読み直すのではなく、メモリ上の1つの記録を全画面が見る。
+// 解答を記録した瞬間に、ホーム・成績・過去問の数字が同じ値で更新される(画面の戻り方や
+// 読み込みのタイミングで、画面同士の数字がずれないようにするため)。ストレージには順番に保存する。
+
+type Store = { data: ProgressData | null; version: number };
+
+let store: Store = { data: null, version: 0 };
+let loading: Promise<ProgressData> | null = null;
+let writeChain: Promise<void> = Promise.resolve();
+const listeners = new Set<() => void>();
+
+function setStore(next: Partial<Store>) {
+  store = { ...store, ...next };
+  listeners.forEach((listener) => listener());
+}
+
+function subscribe(listener: () => void) {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+async function readFromStorage(): Promise<ProgressData> {
   try {
     const raw = await AsyncStorage.getItem(STORAGE_KEY);
     if (!raw) return EMPTY_PROGRESS;
@@ -37,22 +63,55 @@ export async function loadProgress(): Promise<ProgressData> {
   }
 }
 
-export async function recordAnswer(record: QuestionRecord): Promise<void> {
-  const current = await loadProgress();
-  const next: ProgressData = { records: [...current.records, record] };
-  try {
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-  } catch {
-    // 端末ストレージへの保存に失敗しても、演習自体は継続できるようにする
+/** 記録を返す。最初の1回だけストレージから読み、以後はメモリ上の記録を返す */
+export async function loadProgress(): Promise<ProgressData> {
+  if (store.data) return store.data;
+  if (!loading) {
+    loading = readFromStorage().then((data) => {
+      // 読み込み中に解答が記録されていた場合は、そちらを優先する
+      if (!store.data) setStore({ data });
+      loading = null;
+      return store.data as ProgressData;
+    });
   }
+  return loading;
+}
+
+/** 解答を1件記録する。メモリ上の記録は即座に更新し、ストレージへは順番に保存する */
+export async function recordAnswer(record: QuestionRecord): Promise<void> {
+  await loadProgress();
+  // await のあとの最新の記録に追加する(続けて呼ばれても、取りこぼさない)
+  const next: ProgressData = { records: [...(store.data as ProgressData).records, record] };
+  setStore({ data: next });
+  writeChain = writeChain
+    .then(() => AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next)))
+    .catch(() => {
+      // 端末ストレージへの保存に失敗しても、演習自体は継続できるようにする
+    });
+  return writeChain;
 }
 
 export async function clearProgress(): Promise<void> {
-  try {
-    await AsyncStorage.removeItem(STORAGE_KEY);
-  } catch {
-    // no-op
-  }
+  setStore({ data: EMPTY_PROGRESS });
+  writeChain = writeChain.then(() => AsyncStorage.removeItem(STORAGE_KEY)).catch(() => {});
+  return writeChain;
+}
+
+// アプリが前面に戻ったときは、日付をまたいでいる場合に備えて、表示を計算し直す
+AppState.addEventListener("change", (status) => {
+  if (status === "active" && store.data) setStore({ version: store.version + 1 });
+});
+
+/**
+ * 画面から記録を使うためのフック。data は読み込みが終わるまで null。
+ * version は、記録が変わっていなくても、前面に戻ったときに変わる(日付に依存する集計の再計算用)。
+ */
+export function useProgress(): Store {
+  const current = useSyncExternalStore(subscribe, () => store);
+  useEffect(() => {
+    if (!store.data) loadProgress();
+  }, []);
+  return current;
 }
 
 export interface FieldStats {
@@ -69,7 +128,7 @@ export interface OverallStats {
   byField: FieldStats[];
   // 「最新の結果が不正解」の問題ID一覧(新しい順)。同じ問題を何度も解いている場合は最新の1回だけで判定する
   latestIncorrectQuestionIds: string[];
-  // 直近7日間(過去168時間)に解いた問題数
+  // 直近7日間(今日を含む暦の7日。成績タブの棒グラフと同じ数え方)に解いた問題数
   last7DaysCount: number;
   // 連続学習日数。今日分がまだ無い場合は「昨日までの連続日数」を返す
   // (その日のうちに演習すれば継続扱いにするため、日をまたぐまではリセットしない)
@@ -77,7 +136,6 @@ export interface OverallStats {
 }
 
 const ALL_FIELDS: QuestionField[] = ["関係法令", "労働衛生", "労働生理"];
-const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
 /** ローカルタイムゾーンでの日付部分だけを "YYYY-MM-DD" として取り出す */
 export function toLocalDateKey(date: Date): string {
@@ -197,10 +255,9 @@ export function summarize(progress: ProgressData): OverallStats {
     .reverse()
     .map((r) => r.questionId);
 
-  const now = Date.now();
-  const last7DaysCount = records.filter(
-    (r) => now - new Date(r.answeredAt).getTime() <= SEVEN_DAYS_MS
-  ).length;
+  // 成績タブの棒グラフ(getDailyCounts)と同じ「今日を含む暦の7日」で数える。ホームと成績で数字がずれないように、
+  // 「過去168時間」ではなく、日付(端末のローカル日付)で区切る
+  const last7DaysCount = getDailyCounts(records, 7).reduce((sum, d) => sum + d.count, 0);
 
   return {
     total,

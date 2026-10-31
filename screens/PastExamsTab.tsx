@@ -1,11 +1,9 @@
-import { useCallback, useState } from "react";
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { useFocusEffect } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { colors } from "../theme";
 import type { RootStackParamList } from "../navigation/types";
 import { EXAMS, FIELDS, getExam, type Exam } from "../lib/exams";
-import { loadProgress, summarizeIds, type QuestionRecord } from "../lib/progress";
+import { summarizeIds, useProgress, type QuestionRecord } from "../lib/progress";
 import ExamProgressCard from "../components/ExamProgressCard";
 import { useEntitlement } from "../lib/entitlements";
 import { canOpenExam } from "../lib/questionAccess";
@@ -18,21 +16,9 @@ type Props = {
   onSelectExam: (key: string | null) => void;
 };
 
+/** 全画面で共有している記録(読み込み前は空) */
 function useRecords(): QuestionRecord[] {
-  const [records, setRecords] = useState<QuestionRecord[]>([]);
-  // 演習から戻ってくるたびに最新の記録を読み直す
-  useFocusEffect(
-    useCallback(() => {
-      let isActive = true;
-      loadProgress().then((p) => {
-        if (isActive) setRecords(p.records);
-      });
-      return () => {
-        isActive = false;
-      };
-    }, [])
-  );
-  return records;
+  return useProgress().data?.records ?? [];
 }
 
 export default function PastExamsTab({ navigation, examKey, onSelectExam }: Props) {
