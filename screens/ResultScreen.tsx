@@ -103,7 +103,18 @@ export default function ResultScreen({ navigation, route }: Props) {
         </View>
 
         <View>
-          <Text style={styles.sectionTitle}>問題ごとの結果</Text>
+          <Text style={[styles.sectionTitle, styles.sectionTitleTight]}>問題ごとの結果</Text>
+          {/* 凡例。色だけに頼らないよう、丸の中にも ○ / × を添えている */}
+          <View style={styles.legend}>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, styles.cellCorrect]} />
+              <Text style={styles.legendText}>正解</Text>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, styles.cellIncorrect]} />
+              <Text style={styles.legendText}>不正解</Text>
+            </View>
+          </View>
           <View style={styles.cellRows}>
             {rows.map((row, rowIndex) => (
               <View key={rowIndex} style={styles.cellRow}>
@@ -120,10 +131,18 @@ export default function ResultScreen({ navigation, route }: Props) {
                       <Text
                         style={[
                           styles.cellText,
-                          { color: record.correct ? colors.white : colors.black },
+                          { color: record.correct ? colors.black : colors.white },
                         ]}
                       >
                         {number}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.cellMark,
+                          { color: record.correct ? colors.black : colors.white },
+                        ]}
+                      >
+                        {record.correct ? "○" : "×"}
                       </Text>
                     </View>
                   );
@@ -269,17 +288,44 @@ const styles = StyleSheet.create({
     width: CELL_SIZE,
     height: CELL_SIZE,
   },
+  // 正解: ライムの塗り+黒い数字 / 不正解: 黒の塗り+白い数字
   cellCorrect: {
-    backgroundColor: colors.black,
+    backgroundColor: colors.neonLime,
   },
   cellIncorrect: {
-    backgroundColor: colors.white,
-    borderWidth: 1.5,
-    borderColor: colors.lightBorder,
+    backgroundColor: colors.black,
   },
   cellText: {
     fontSize: 14,
+    lineHeight: 16,
+    fontWeight: "800",
+  },
+  cellMark: {
+    fontSize: 11,
+    lineHeight: 12,
     fontWeight: "700",
+  },
+  sectionTitleTight: {
+    marginBottom: 6,
+  },
+  legend: {
+    flexDirection: "row",
+    gap: 16,
+    marginBottom: 10,
+  },
+  legendItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  legendDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+  },
+  legendText: {
+    fontSize: 11,
+    color: colors.textSecondary,
   },
   bottomArea: {
     marginTop: "auto",
